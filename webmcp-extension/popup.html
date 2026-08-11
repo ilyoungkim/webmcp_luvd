@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>연애의 자격 AI 비서</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        width: 360px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Noto Sans KR", sans-serif;
+        background: #fff;
+        color: #1f2937;
+      }
+      header {
+        padding: 14px 16px;
+        background: linear-gradient(135deg, #ff6b9d, #ff3d6e);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      header h1 {
+        font-size: 15px;
+        font-weight: 700;
+        flex: 1;
+      }
+      header .status {
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 3px 8px;
+        border-radius: 12px;
+      }
+      main {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: #fafafa;
+      }
+      .card h2 {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+      .card .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 3px 0;
+      }
+      .card .row .label {
+        color: #6b7280;
+      }
+      textarea {
+        width: 100%;
+        min-height: 80px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        resize: vertical;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #ff3d6e;
+      }
+      button {
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #ff3d6e;
+        color: #fff;
+        transition: opacity 0.15s;
+      }
+      button:hover {
+        opacity: 0.85;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.secondary {
+        background: #f3f4f6;
+        color: #1f2937;
+        border: 1px solid #e5e7eb;
+      }
+      .result {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 8px;
+        display: none;
+      }
+      .result.show {
+        display: block;
+      }
+      .result.error {
+        border-color: #fca5a5;
+        color: #b91c1c;
+      }
+      .loader {
+        display: none;
+        text-align: center;
+        color: #6b7280;
+        font-size: 12px;
+        padding: 6px;
+      }
+      .loader.show {
+        display: block;
+      }
+      .hint {
+        font-size: 11px;
+        color: #9ca3af;
+        line-height: 1.5;
+      }
+      .warning {
+        border: 1px solid #fbbf24;
+        background: #fff7ed;
+        color: #9a5b00;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .warning strong {
+        color: #7c2d12;
+      }
+      .warning ul,
+      .warning ol {
+        margin: 6px 0 0 18px;
+      }
+      .warning code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        background: rgba(255, 255, 255, 0.5);
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin: 2px;
+        background: #fee2e2;
+        color: #b91c1c;
+        cursor: pointer;
+      }
+      .pill:hover {
+        background: #fecaca;
+      }
+      .divider {
+        height: 1px;
+        background: #e5e7eb;
+        margin: 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>💘 연애의 자격 AI 비서</h1>
+      <span class="status" id="statusText">연결 확인 중...</span>
+    </header>
+    <main>
+      <div class="card">
+        <h2>📡 WebMCP 툴 상태</h2>
+        <div id="toolsList">
+          <div class="row"><span class="label">확인 중...</span></div>
+        </div>
+        <div class="divider"></div>
+        <h2>🤖 Chrome 내장 AI</h2>
+        <div id="aiStatus">
+          <div class="row"><span class="label">확인 중...</span></div>
+        </div>
+        <div id="aiWarning" class="warning" style="display: none; margin-top: 8px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>💬 질문하기 (AI 분석)</h2>
+        <textarea
+          id="userQuestion"
+          placeholder="예: 재회 가능성 진단을 받아보고 싶어. 3개월 전에 헤어졌고..."
+        ></textarea>
+        <div class="hint" style="margin-top: 6px">
+          빠른 입력:
+          <span class="pill" data-question="서비스 가격 알려줘">서비스 가격</span>
+          <span class="pill" data-question="상담사 정보 알려줘">상담사</span>
+          <span class="pill" data-question="재회 가능성 진단을 제출해줘. 6개월 전에 헤어졌고 문제는 재회하고 싶다는 것">진단 제출</span>
+        </div>
+        <div class="loader" id="loader">분석 중...</div>
+        <button id="askBtn" style="margin-top: 8px">AI 분석 실행</button>
+      </div>
+
+      <div class="card">
+        <h2>📋 결과</h2>
+        <div class="result" id="result"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ 설정</h2>
+        <label class="row" style="cursor: pointer; align-items: center">
+          <span class="label">Chrome 내장 AI 우선 사용</span>
+          <input type="checkbox" id="preferAi" checked />
+        </label>
+        <div class="hint" style="margin-top: 6px">
+          체크 시 Chrome 내장 AI(제미나이 나노)로 자연어를 해석해 WebMCP 툴을 자동 호출합니다.
+          내장 AI가 없으면 WebMCP 툴을 직접 호출합니다.
+        </div>
+      </div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
