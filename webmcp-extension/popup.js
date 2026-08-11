@@ -1,12 +1,27 @@
 // ─────────────────────────────────────────────────────────────
 // popup.js — 연애의 자격 AI 비서 팝업 로직
 // WebMCP 툴을 content script를 통해 조회/호출하고,
-// Chrome 내장 AI(제미나이 나노)와 연동해 자연어 질문을 처리합니다.
+// 페이지 데이터와 키워드 기반 방식으로 결과를 표시합니다.
 // ─────────────────────────────────────────────────────────────
 
 const $ = (sel) => document.querySelector(sel);
 
 /** 현재 활성 탭의 WebMCP 상태를 조회합니다. */
+async function sendMessageToTab(tabId, message) {
+  return await new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, message, (resp) => {
+      if (chrome.runtime.lastError) {
+        resolve({
+          ok: false,
+          reason: chrome.runtime.lastError.message || 'content script unavailable',
+        });
+        return;
+      }
+      resolve(resp || { ok: false, reason: '빈 응답' });
+    });
+  });
+}
+
 async function queryWebMCP() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) {
@@ -16,68 +31,50 @@ async function queryWebMCP() {
   if (!isSupported) {
     return { ok: false, reason: '지원하지 않는 페이지입니다.' };
   }
-  return await chrome.tabs.sendMessage(
-    tab.id,
-    { type: 'WEBMCP_QUERY' },
-    (resp) => resp
-  );
+
+  // WebMCP 툴은 페이지 main world에 등록됩니다. modelContext에는 툴 목록 조회 API가
+  // 없으므로, 페이지의 WebMCPConfig.items 로부터 툴 목록을 구성합니다.
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: () => {
+        const cfg = window.WebMCPConfig;
+        const items = cfg && Array.isArray(cfg.items) ? cfg.items : [];
+        const ns = (cfg && cfg.siteNs) || 'site';
+        const toolNames = items
+          .map((item) => {
+            if (!item) return null;
+            const name = [ns, item.group, item.name].join('.');
+            return { name };
+          })
+          .filter(Boolean);
+
+        // modelContext 존재 여부만 참조 (툴 목록은 스펙상 열거 불가)
+        const ctx =
+          (typeof document !== 'undefined' && document.modelContext) ||
+          (typeof navigator !== 'undefined' && navigator.modelContext) ||
+          (typeof window !== 'undefined' && window.modelContext) ||
+          null;
+
+        return { ok: true, tools: toolNames, modelContext: !!ctx };
+      },
+    });
+
+    const value = results && results[0] ? results[0].result : null;
+    return value || { ok: false, tools: [], modelContext: false };
+  } catch (e) {
+    return { ok: false, tools: [], reason: e.message || String(e) };
+  }
 }
 
 /** 활성 탭에서 WebMCP 툴을 직접 호출합니다. */
 async function invokeTool(tool, args) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) return { error: true, message: '탭 없음' };
-  return await chrome.tabs.sendMessage(
-    tab.id,
-    { type: 'WEBMCP_INVOKE', tool, args },
-    (resp) => resp
-  );
+  return await sendMessageToTab(tab.id, { type: 'WEBMCP_INVOKE', tool, args });
 }
 
-/** Chrome 내장 AI(Session) 사용 가능 여부를 확인합니다. */
-function getAiCapabilities() {
-  const ai = window.ai;
-  if (!ai) return { available: 'no' };
-  if (ai.languageModel && typeof ai.languageModel.capabilities === 'function') {
-    return ai.languageModel.capabilities();
-  }
-  return { available: 'unavailable' };
-}
-
-/** Chrome 내장 AI 세션을 생성합니다. */
-async function createAiSession() {
-  const ai = window.ai;
-  if (!ai || !ai.languageModel) return null;
-  const cap = ai.languageModel.capabilities();
-  if (cap.available !== 'readily') return null;
-  // 시스템 프롬프트: WebMCP 툴 목록을 알려주고 JSON으로 응답하게 함
-  return await ai.languageModel.create({
-    systemPrompt: [
-      '당신은 연애의자격(yonja) 웹사이트의 AI 비서입니다.',
-      '사용자의 질문을 분석하여 아래 WebMCP 툴 중 하나를 선택하고 호출 인자를 만들어야 합니다.',
-      '툴 목록:',
-      '- yonja.service.get_info: 서비스 종류/가격/구성 조회 (인자 없음)',
-      '- yonja.consultant.get_info: 상담사 정보 조회 (인자: consultantId)',
-      '- yonja.diagnosis.submit: 재회 가능성 진단 제출 (인자: problem, months)',
-      '반드시 다음 JSON 형식으로만 응답하세요 (설명 없이 JSON만):',
-      '{"tool": "툴이름", "args": {...}}',
-      '적절한 툴이 없으면 {"tool": null, "args": {}} 로 응답하세요.',
-    ].join('\n'),
-  });
-}
-
-/** 내장 AI에 질문을 보내 툴 호출을 해석합니다. */
-async function askAiToPlan(session, question) {
-  const res = await session.prompt(question);
-  // JSON 부분만 추출
-  const m = res.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    return JSON.parse(m[0]);
-  } catch {
-    return null;
-  }
-}
 
 function renderTools(tools) {
   const box = $('#toolsList');
@@ -94,42 +91,131 @@ function renderTools(tools) {
     .join('');
 }
 
-function renderAiStatus() {
-  const cap = getAiCapabilities();
-  const el = $('#aiStatus');
-  const map = {
-    readily: { text: '✅ 사용 가능', color: '#16a34a' },
-    afterDownload: { text: '🕓 다운로드 필요', color: '#d97706' },
-    no: { text: '❌ 미지원', color: '#dc2626' },
-    unavailable: { text: '❌ 미지원', color: '#dc2626' },
-  };
-  const s = map[cap.available] || { text: '확인 중', color: '#6b7280' };
-  el.innerHTML = `<div class="row"><span class="label" style="color:${s.color}">${s.text}</span></div>`;
+async function queryPageInfo() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.id) {
+    return { ok: false, reason: '탭이 없습니다.' };
+  }
+  const isSupported = /^https?:/.test(tab.url || '');
+  if (!isSupported) {
+    return { ok: false, reason: '지원하지 않는 페이지입니다.' };
+  }
 
-  const warningEl = $('#aiWarning');
-  const unavailable = cap.available === 'no' || cap.available === 'unavailable';
+  // content script는 isolated world라서 페이지의 window.WebMCPConfig에 접근할 수 없습니다.
+  // chrome.scripting.executeScript(world: 'MAIN')로 페이지 main world에서 직접 읽어옵니다.
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      func: () => {
+        const cfg = window.WebMCPConfig;
+        if (!cfg || !Array.isArray(cfg.items)) {
+          return { ok: false, reason: 'WebMCPConfig 없음' };
+        }
 
-  if (!unavailable) {
-    warningEl.style.display = 'none';
-    warningEl.innerHTML = '';
+        const serviceItem = cfg.items.find(
+          (item) => item && item.group === 'service' && item.name === 'get_info'
+        );
+        const consultantItem = cfg.items.find(
+          (item) => item && item.group === 'consultant' && item.name === 'get_info'
+        );
+
+        const resolve = (item) => {
+          if (!item) return null;
+          if (typeof item.getData === 'function') {
+            try {
+              return item.getData();
+            } catch (e) {
+              return null;
+            }
+          }
+          return item.getData || null;
+        };
+
+        const service = resolve(serviceItem);
+        const consultantData = resolve(consultantItem);
+
+        return {
+          ok: true,
+          service,
+          consultant:
+            consultantData && consultantData.consultants
+              ? consultantData.consultants
+              : consultantData,
+        };
+      },
+    });
+
+    const value = results && results[0] ? results[0].result : null;
+    return value || { ok: false, reason: 'WebMCPConfig 읽기 실패' };
+  } catch (e) {
+    return { ok: false, reason: e.message || String(e) };
+  }
+}
+
+function renderServiceInfo(serviceData) {
+  const box = $('#serviceInfoCard');
+  if (!serviceData || !serviceData.services || serviceData.services.length === 0) {
+    box.innerHTML = '<div class="info-empty">서비스 정보를 불러오지 못했습니다.</div>';
     return;
   }
 
-  warningEl.style.display = 'block';
-  warningEl.innerHTML = `
-    <strong>경고:</strong> Chrome 내장 AI(Gemini Nano) 를 사용할 수 없습니다.
-    <br>
-    <strong>대안:</strong> 이 확장은 키워드 기반으로 WebMCP 툴을 직접 호출하므로 정상 동작합니다.
-    <br>
-    <strong>활성화 방법:</strong>
-    <ol>
-      <li>주소창에 <code>chrome://flags</code> 입력</li>
-      <li><code>#prompt-api-for-gemini-nano</code> → <code>Enabled</code></li>
-      <li><code>#optimization-guide-on-device-model</code> → <code>Enabled BypassPerfRequirement</code></li>
-      <li>Chrome 재시작</li>
-    </ol>
-    <div style="margin-top:6px;">내장 AI가 없어도 질문을 입력하면 키워드로 서비스 정보, 상담사 정보, 진단 제출 툴을 직접 호출합니다.</div>
-  `;
+  box.innerHTML = '';
+
+  if (serviceData.about) {
+    box.innerHTML += `<div class="info-note" style="margin-bottom: 6px;">${serviceData.about}</div>`;
+  }
+
+  box.innerHTML += serviceData.services
+    .map(
+      (service) => `
+        <div class="info-item">
+          <div class="info-title">${service.name || '서비스'}</div>
+          <div class="info-meta">${service.price || '가격 미정'}</div>
+        </div>
+      `
+    )
+    .join('');
+
+  if (serviceData.consultation) {
+    box.innerHTML += `<div class="info-note">${serviceData.consultation}</div>`;
+  }
+}
+
+function renderConsultantInfo(consultantData) {
+  const box = $('#consultantInfoCard');
+  const items = Array.isArray(consultantData)
+    ? consultantData
+    : consultantData && consultantData.consultants
+      ? consultantData.consultants
+      : [];
+
+  if (!items.length) {
+    box.innerHTML = '<div class="info-empty">상담사 정보를 불러오지 못했습니다.</div>';
+    return;
+  }
+
+  box.innerHTML = items
+    .map(
+      (item) => `
+        <div class="info-item">
+          <div class="info-title">${item.name || '상담사'}</div>
+          <div class="info-meta">${item.specialty || '전문분야 미상'}</div>
+          <div class="info-micro">${item.experience || '경력 미상'} · ${item.id ? `ID ${item.id}` : '정보'}</div>
+        </div>
+      `
+    )
+    .join('');
+}
+
+function renderInfoCards(info) {
+  if (!info) {
+    $('#serviceInfoCard').innerHTML = '<div class="info-empty">서비스 정보 없음</div>';
+    $('#consultantInfoCard').innerHTML = '<div class="info-empty">상담사 정보 없음</div>';
+    return;
+  }
+  renderServiceInfo(info.service || null);
+  renderConsultantInfo(info.consultant || null);
 }
 
 function showResult(data, isError) {
@@ -158,11 +244,17 @@ async function refresh() {
   } else {
     status.textContent = '⚠️ 연결 안 됨';
     status.style.background = 'rgba(220,38,38,0.3)';
-    const reason = res?.reason || 'WebMCP 미노출';
+    const reason = 'WebMCP 미노출';
     $('#toolsList').innerHTML =
       `<div class="row"><span class="label">${reason}</span></div>`;
   }
-  renderAiStatus();
+
+  const infoRes = await queryPageInfo().catch((e) => ({ ok: false, reason: e.message }));
+  if (infoRes && infoRes.ok && infoRes.service) {
+    renderInfoCards(infoRes);
+  } else {
+    renderInfoCards(null);
+  }
 }
 
 /** 질문 처리: 내장 AI 우선 → WebMCP 툴 호출 */
@@ -176,31 +268,11 @@ async function handleAsk() {
   showResult('', false);
   $('#result').classList.remove('show');
 
-  const preferAi = $('#preferAi').checked;
-
   try {
-    // 1) Chrome 내장 AI로 툴 호출 계획을 생성
-    if (preferAi) {
-      const session = await createAiSession();
-      if (session) {
-        const plan = await askAiToPlan(session, q);
-        if (plan && plan.tool) {
-          const res = await invokeTool(plan.tool, plan.args || {});
-          showResult(res);
-          setLoading(false);
-          session.destroy?.();
-          return;
-        }
-      }
-    }
-
-    // 2) 내장 AI 없음/해석 실패 시 → 키워드 기반 간단 라우팅
     const plan = keywordPlan(q);
     if (plan.tool) {
       const res = await invokeTool(plan.tool, plan.args);
-      const fallbackNote =
-        'Chrome 내장 AI가 없어도 키워드 기반으로 WebMCP 툴을 직접 호출하므로 정상 동작합니다.';
-      showResult(typeof res === 'string' ? `${fallbackNote}\n\n${res}` : { note: fallbackNote, result: res });
+      showResult(res);
     } else {
       showResult('적절한 툴을 찾지 못했습니다. 질문을 다르게 입력해보세요.', true);
     }

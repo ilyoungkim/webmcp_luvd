@@ -102,6 +102,42 @@ function extractToolNames(tools) {
   return tools.map((t) => (typeof t === 'string' ? t : t.name)).filter(Boolean);
 }
 
+/** 페이지에 정의된 WebMCPConfig의 실제 서비스 정보를 추출합니다. */
+function getPageInfoSnapshot() {
+  const cfg = typeof window !== 'undefined' ? window.WebMCPConfig : null;
+  const items = cfg && Array.isArray(cfg.items) ? cfg.items : [];
+
+  const serviceItem = items.find(
+    (item) => item && item.group === 'service' && item.name === 'get_info'
+  );
+  const consultantItem = items.find(
+    (item) => item && item.group === 'consultant' && item.name === 'get_info'
+  );
+
+  const serviceData =
+    serviceItem && typeof serviceItem.getData === 'function'
+      ? serviceItem.getData()
+      : serviceItem && serviceItem.getData
+        ? serviceItem.getData
+        : null;
+
+  const consultantData =
+    consultantItem && typeof consultantItem.getData === 'function'
+      ? consultantItem.getData()
+      : consultantItem && consultantItem.getData
+        ? consultantItem.getData
+        : null;
+
+  return {
+    ok: true,
+    service: serviceData || null,
+    consultant:
+      consultantData && consultantData.consultants
+        ? consultantData.consultants
+        : consultantData || null,
+  };
+}
+
 /** 메시지 리스너 */
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
@@ -114,6 +150,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         ),
         toolNames: extractToolNames(tools),
       });
+    } else if (msg.type === 'WEBMCP_INFO_QUERY') {
+      sendResponse(getPageInfoSnapshot());
     } else if (msg.type === 'WEBMCP_INVOKE') {
       const result = await invokeWebMCPTool(msg.tool, msg.args || {});
       sendResponse(result);
