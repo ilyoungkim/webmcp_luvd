@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent
 MANIFEST_PATH = ROOT / 'manifest.json'
 README_PATH = ROOT / 'README.md'
 RELEASES_DIR = ROOT.parent / 'builds'
-VERSION_RE = re.compile(r'^(\d+)\.(\d+)\.(\d+)-alpha\.(\d+)$')
+VERSION_RE = re.compile(r'^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$')
 
 
 def read_version() -> str:
@@ -19,7 +19,7 @@ def read_version() -> str:
     version = manifest.get('version')
     if not version or not VERSION_RE.match(version):
         raise ValueError(
-            f"지원하지 않는 버전 형식입니다: {version!r}. 기대 형식: 0.1.1-alpha.001"
+            f"지원하지 않는 버전 형식입니다: {version!r}. 기대 형식: 0.1.1.3"
         )
     return version
 
@@ -29,8 +29,10 @@ def bump_version(current: str) -> str:
     if not match:
         raise ValueError(f"버전 형식이 올바르지 않습니다: {current}")
     major, minor, patch, build = match.groups()
+    if build is None:
+        build = '0'
     next_build = int(build) + 1
-    return f"{major}.{minor}.{patch}-alpha.{next_build:03d}"
+    return f"{major}.{minor}.{patch}.{next_build}"
 
 
 def update_manifest(version: str) -> None:
