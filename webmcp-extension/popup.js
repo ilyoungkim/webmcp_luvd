@@ -444,15 +444,21 @@ async function handleAsk() {
   setLoading(true);
 
   try {
-    // 1) 내장 AI(window.LanguageModel)가 사용 가능하면 우선 사용
+    // 1) 내장 AI(window.LanguageModel)가 존재하면 우선 사용
+    //    ('available' 뿐 아니라 'downloadable' 상태에서도 create()로 다운로드+사용 가능)
     const lm = await detectBuiltinLanguageModel();
-    if (lm.available === 'available') {
-      const answer = await askBuiltinLanguageModel(q);
-      addChatMessage(answer);
-      return;
+    if (lm.available === 'available' || lm.available === 'downloadable') {
+      try {
+        const answer = await askBuiltinLanguageModel(q);
+        addChatMessage(answer);
+        return;
+      } catch (e) {
+        // 내장 AI 호출 실패 시(모델 다운로드 불가 등) 서버 호출로 폴백
+        console.warn('[AI] 내장 AI 실패, 서버 호출로 폴백:', e.message);
+      }
     }
 
-    // 2) 내장 AI가 없으면 Gemini API 키로 답변
+    // 2) 내장 AI가 없거나 실패했을 때만 Gemini API 키로 답변
     if (hasGeminiKey()) {
       const answer = await askGemini(q);
       addChatMessage(answer);
