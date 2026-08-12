@@ -243,6 +243,20 @@ function addChatMessage(text, { role = 'bot', isError = false } = {}) {
   return bubble;
 }
 
+/** 채팅 내 링크 클릭 시 새 탭으로 열기 (팝업이 닫히는 문제 방지) */
+function initChatLinkHandling() {
+  const chat = $('#chat');
+  chat.addEventListener('click', (e) => {
+    const anchor = e.target.closest('a');
+    if (!anchor) return;
+    e.preventDefault();
+    const url = anchor.getAttribute('href');
+    if (url && /^https?:\/\//i.test(url)) {
+      chrome.tabs.create({ url });
+    }
+  });
+}
+
 /** 인사말/웰컴 메시지를 채팅에 표시합니다. */
 function addWelcomeMessage() {
   const chat = $('#chat');
@@ -371,7 +385,8 @@ async function askBuiltinLanguageModel(question) {
     '- 박사랑 상담사 (ID 601): 권태기·재회 전문, 경력 10년, 평점 4.9\n' +
     '- 최희망 상담사 (ID 602): 이별 극복·심리상담 전문, 경력 7년, 평점 4.7\n' +
     '- 정용기 상담사 (ID 603): 연애 심리·갈등 해결 전문, 경력 9년, 평점 4.8\n' +
-    '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.';
+    '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n' +
+    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [김연애 원장](https://yonza.co.kr/counseling-introduction), [이마음 상담사](https://yonza.co.kr/counseling-introduction) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요.';
 
   // 'downloadable' 상태는 모델 다운로드가 필요하므로, 다운로드가 오래 걸리면
   // 서버 호출로 폴백할 수 있도록 타임아웃을 적용합니다.
@@ -427,7 +442,8 @@ async function askGemini(question) {
     '- 박사랑 상담사 (ID 601): 권태기·재회 전문, 경력 10년, 평점 4.9\n' +
     '- 최희망 상담사 (ID 602): 이별 극복·심리상담 전문, 경력 7년, 평점 4.7\n' +
     '- 정용기 상담사 (ID 603): 연애 심리·갈등 해결 전문, 경력 9년, 평점 4.8\n' +
-    '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n\n' +
+    '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n' +
+    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [김연애 원장](https://yonza.co.kr/counseling-introduction), [이마음 상담사](https://yonza.co.kr/counseling-introduction) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요.\n\n' +
     '가격은 프로그램 종류와 담당 상담사에 따라 다르며, 자세한 상담은 아래 기능으로 안내하세요:\n' +
     '- 서비스 가격 조회\n' +
     '- 상담사 정보 조회\n' +
@@ -568,6 +584,7 @@ function keywordPlan(q) {
 // 이벤트 바인딩
 document.addEventListener('DOMContentLoaded', () => {
   addWelcomeMessage();
+  initChatLinkHandling();
   refresh();
 });
 
