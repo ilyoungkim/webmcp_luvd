@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# API keys (절대 커밋 금지)
+webmcp-extension/gemini-key.js

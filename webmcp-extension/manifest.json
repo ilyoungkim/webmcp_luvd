@@ -13,7 +13,8 @@
     "http://localhost:8000/*",
     "https://yonja.co.kr/*",
     "https://fonts.googleapis.com/*",
-    "https://cdn.jsdelivr.net/*"
+    "https://cdn.jsdelivr.net/*",
+    "https://generativelanguage.googleapis.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

@@ -9,20 +9,31 @@
         margin: 0;
         padding: 0;
       }
+      html, body {
+        height: 100%;
+      }
       body {
-        width: 360px;
+        width: 440px;
+        max-width: 440px;
+        min-width: 440px;
+        height: 600px;
+        max-height: 600px;
+        overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Noto Sans KR", sans-serif;
-        background: #fff;
+        background: #f7f7fb;
         color: #1f2937;
+        display: flex;
+        flex-direction: column;
       }
       header {
-        padding: 14px 16px;
-        background: linear-gradient(135deg, #ff6b9d, #ff3d6e);
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #85176d, #e91b65);
         color: #fff;
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-shrink: 0;
       }
       header h1 {
         font-size: 15px;
@@ -30,161 +41,231 @@
         flex: 1;
       }
       header .status {
-        font-size: 11px;
+        font-size: 10px;
         background: rgba(255, 255, 255, 0.2);
-        padding: 3px 8px;
+        padding: 3px 7px;
         border-radius: 12px;
+        white-space: nowrap;
       }
-      main {
-        padding: 12px;
+
+      /* ── 채팅 영역 ─────────────────────────────── */
+      #chat {
+        flex: 1 1 0%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100%;
+        padding: 14px 12px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
+        min-height: 0;
+        min-width: 0;
       }
-      .card {
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 12px;
-        background: #fafafa;
-      }
-      .card h2 {
-        font-size: 12px;
-        color: #6b7280;
-        margin-bottom: 8px;
-        font-weight: 600;
-      }
-      .card .row {
+      .msg {
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
+        flex-shrink: 0;
+        width: fit-content;
+        max-width: 100%;
+        min-width: 0;
+      }
+      .msg .bubble {
+        padding: 10px 12px;
+        border-radius: 14px;
         font-size: 13px;
-        padding: 3px 0;
-      }
-      .card .row .label {
-        color: #6b7280;
-      }
-      textarea {
-        width: 100%;
-        min-height: 80px;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        padding: 8px;
-        font-size: 13px;
-        font-family: inherit;
-        resize: vertical;
-      }
-      textarea:focus {
-        outline: none;
-        border-color: #ff3d6e;
-      }
-      button {
-        border: none;
-        border-radius: 8px;
-        padding: 10px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        background: #ff3d6e;
-        color: #fff;
-        transition: opacity 0.15s;
-      }
-      button:hover {
-        opacity: 0.85;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      button.secondary {
-        background: #f3f4f6;
-        color: #1f2937;
-        border: 1px solid #e5e7eb;
-      }
-      .result {
+        line-height: 1.55;
         white-space: pre-wrap;
         word-break: break-word;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+        min-width: 0;
+      }
+      /* 마크다운 렌더링 요소 스타일 */
+      .msg .bubble p { margin: 0 0 6px; }
+      .msg .bubble p:last-child { margin-bottom: 0; }
+      .msg .bubble h1, .msg .bubble h2, .msg .bubble h3, .msg .bubble h4 {
+        margin: 6px 0 4px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      .msg .bubble h2 { font-size: 14px; }
+      .msg .bubble h3 { font-size: 13px; }
+      .msg .bubble h4 { font-size: 12.5px; }
+      .msg .bubble ul, .msg .bubble ol {
+        margin: 4px 0;
+        padding-left: 18px;
+      }
+      .msg .bubble li { margin: 2px 0; }
+      .msg .bubble a { color: #85176d; text-decoration: underline; }
+      .msg .bubble .md-code {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin: 6px 0;
+        font-family: ui-monospace, Menlo, monospace;
         font-size: 12px;
-        max-height: 200px;
-        overflow-y: auto;
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .msg .bubble .md-inline {
+        background: #f3f4f6;
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12px;
+      }
+      .msg.bot {
+        align-self: flex-start;
+        align-items: flex-start;
+      }
+      .msg.bot .bubble {
         background: #fff;
         border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 8px;
-        display: none;
+        border-top-left-radius: 4px;
+        color: #1f2937;
       }
-      .result.show {
-        display: block;
+      .msg.user {
+        align-self: flex-end;
+        align-items: flex-end;
       }
-      .result.error {
+      .msg.user .bubble {
+        background: #85176d;
+        color: #fff;
+        border-top-right-radius: 4px;
+      }
+      .msg.error .bubble {
+        background: #fef2f2;
         border-color: #fca5a5;
         color: #b91c1c;
+      }
+      .msg .time {
+        font-size: 10px;
+        color: #9ca3af;
+        margin-top: 4px;
+        white-space: nowrap;
+      }
+
+      /* ── 입력 영역 ─────────────────────────────── */
+      #inputBar {
+        flex-shrink: 0;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .pill {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 14px;
+        background: #f3e8ff;
+        color: #85176d;
+        cursor: pointer;
+        border: none;
+        transition: background 0.15s;
+      }
+      .pill:hover {
+        background: #e9d5ff;
+      }
+      .inputRow {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+      }
+      textarea {
+        flex: 1;
+        min-height: 44px;
+        max-height: 120px;
+        border: 1px solid #d1d5db;
+        border-radius: 20px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-family: inherit;
+        resize: none;
+        outline: none;
+      }
+      textarea:focus {
+        border-color: #85176d;
+      }
+      button#askBtn {
+        width: 48px;
+        height: 48px;
+        border: none;
+        border-radius: 50%;
+        font-size: 20px;
+        font-weight: 700;
+        cursor: pointer;
+        background: #85176d;
+        color: #fff;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      button#askBtn:hover {
+        opacity: 0.85;
+      }
+      button#askBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
       .loader {
         display: none;
         text-align: center;
         color: #6b7280;
         font-size: 12px;
-        padding: 6px;
+        padding: 4px;
       }
       .loader.show {
         display: block;
       }
-      .hint {
+
+      /* ── 아코디언(동작 방식) ──────────────────── */
+      .accordion {
+        flex-shrink: 0;
+        background: #fff;
+        border-top: 1px solid #e5e7eb;
+      }
+      .accordion summary {
+        padding: 10px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .accordion summary::-webkit-details-marker {
+        display: none;
+      }
+      .accordion summary::after {
+        content: "▾";
+        font-size: 10px;
+        transition: transform 0.2s;
+      }
+      .accordion[open] summary::after {
+        transform: rotate(180deg);
+      }
+      .accordion .body {
+        padding: 0 14px 12px;
         font-size: 11px;
         color: #9ca3af;
-        line-height: 1.5;
+        line-height: 1.6;
       }
-      .info-card {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 12px;
-      }
-      .info-item {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 8px 10px;
-      }
-      .info-title {
-        font-size: 12px;
-        font-weight: 700;
-        color: #111827;
-      }
-      .info-meta {
-        margin-top: 3px;
-        color: #374151;
-      }
-      .info-micro {
-        margin-top: 3px;
-        color: #6b7280;
-        font-size: 11px;
-      }
-      .info-note {
-        font-size: 11px;
-        color: #6b7280;
-        line-height: 1.5;
-      }
-      .info-empty {
-        color: #6b7280;
-        font-size: 12px;
-      }
-      .pill {
-        display: inline-block;
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 12px;
-        margin: 2px;
-        background: #fee2e2;
-        color: #b91c1c;
-        cursor: pointer;
-      }
-      .pill:hover {
-        background: #fecaca;
-      }
-      .divider {
-        height: 1px;
-        background: #e5e7eb;
-        margin: 4px 0;
+      .accordion .body code {
+        background: #f3f4f6;
+        padding: 1px 4px;
+        border-radius: 4px;
       }
     </style>
   </head>
@@ -192,53 +273,44 @@
     <header>
       <h1>💘 연애의 자격 AI 비서</h1>
       <span class="status" id="statusText">연결 확인 중...</span>
+      <span class="status" id="aiStatusText" style="display:none">내장 AI 확인 중...</span>
     </header>
-    <main>
-      <div class="card">
-        <h2>📡 WebMCP 툴 상태</h2>
-        <div id="toolsList">
-          <div class="row"><span class="label">확인 중...</span></div>
-        </div>
-      </div>
 
-      <div class="card">
-        <h2>📦 서비스 정보</h2>
-        <div id="serviceInfoCard" class="info-card"></div>
-      </div>
+    <div id="chat" aria-live="polite"></div>
 
-      <div class="card">
-        <h2>👩‍💼 상담사 정보</h2>
-        <div id="consultantInfoCard" class="info-card"></div>
+    <div id="inputBar">
+      <div id="pills">
+        <button class="pill" data-question="서비스 가격 알려줘">서비스 가격</button>
+        <button class="pill" data-question="상담사 정보 알려줘">상담사</button>
+        <button class="pill" data-question="재회 가능성 진단을 제출해줘. 6개월 전에 헤어졌고 문제는 재회하고 싶다는 것">진단 제출</button>
       </div>
-
-      <div class="card">
-        <h2>💬 질문하기</h2>
+      <div class="inputRow">
         <textarea
           id="userQuestion"
-          placeholder="예: 재회 가능성 진단을 받아보고 싶어. 3개월 전에 헤어졌고..."
+          placeholder="메시지를 입력하세요..."
+          rows="1"
         ></textarea>
-        <div class="hint" style="margin-top: 6px">
-          빠른 입력:
-          <span class="pill" data-question="서비스 가격 알려줘">서비스 가격</span>
-          <span class="pill" data-question="상담사 정보 알려줘">상담사</span>
-          <span class="pill" data-question="재회 가능성 진단을 제출해줘. 6개월 전에 헤어졌고 문제는 재회하고 싶다는 것">진단 제출</span>
-        </div>
-        <div class="loader" id="loader">처리 중...</div>
-        <button id="askBtn" style="margin-top: 8px">확인하기</button>
+        <button id="askBtn" title="보내기">➤</button>
       </div>
+      <div class="loader" id="loader">💬 답변 생성 중...</div>
+    </div>
 
-      <div class="card">
-        <h2>📋 결과</h2>
-        <div class="result" id="result"></div>
+    <details class="accordion">
+      <summary>⚙️ 동작 방식</summary>
+      <div class="body">
+        <b>1순위</b> Chrome 내장 AI(<code>window.LanguageModel</code>) 사용 (최신 Chrome + 내장 모델 필요)
+        <br /><b>2순위</b> Google Gemini API 호출 (API 키 필요, 모든 Chrome에서 동작)
+        <br />API 키는 <code>gemini-key.js</code> 파일에 저장되어 있습니다.
+        <br /><br />
+        <b>API 키 발급 방법</b> (aistudio.google.com에서 무료 발급):
+        <br />1. <code>aistudio.google.com</code> 접속 → Google 로그인
+        <br />2. "Get API key" → "Create API key"
+        <br />3. 발급된 키를 <code>gemini-key.js</code>의 <code>GEMINI_API_KEY</code>에 입력
+        <br />4. 확장 프로그램 다시 로드 후 질문
       </div>
+    </details>
 
-      <div class="card">
-        <h2>⚙️ 동작 방식</h2>
-        <div class="hint" style="margin-top: 6px">
-          WebMCP가 노출되면 해당 툴을 사용하고, 노출되지 않으면 페이지 데이터와 키워드 기반 방식으로 동작합니다.
-        </div>
-      </div>
-    </main>
+    <script src="gemini-key.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
