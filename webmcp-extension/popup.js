@@ -334,6 +334,17 @@ async function detectBuiltinAI() {
   return { available: 'no', reason: '내장 AI 없음 + API 키 없음' };
 }
 
+/** Promise에 타임아웃을 적용합니다. */
+function withTimeout(promise, ms, message) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message || '시간 초과')), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 /** 내장 AI(window.LanguageModel)로 답변을 받습니다. */
 async function askBuiltinLanguageModel(question) {
   const LM = window.LanguageModel;
@@ -349,12 +360,24 @@ async function askBuiltinLanguageModel(question) {
     '필요하면 다음 기능을 안내하세요: 서비스 가격 조회, 상담사 정보 조회, 재회 가능성 진단 제출. ' +
     '항상 한국어로 자연스럽게 답변하세요.';
 
-  const session = await LM.create({
-    systemPrompt,
-    outputLanguage: 'en', // 필수: 내장 LanguageModel은 출력 언어 지정 요구 (지원: de,en,es,fr,ja)
-    temperature: 0.2, // 낮을수록 일관되고 정확한 답변
-    topK: 3,
-  });
+  // 'downloadable' 상태는 모델 다운로드가 필요하므로, 다운로드가 오래 걸리면
+  // 서버 호출로 폴백할 수 있도록 타임아웃을 적용합니다.
+  const TIMEOUT_MS = 15000; // 15초
+  let session;
+  try {
+    session = await withTimeout(
+      LM.create({
+        systemPrompt,
+        outputLanguage: 'en', // 필수: 내장 LanguageModel은 출력 언어 지정 요구 (지원: de,en,es,fr,ja)
+        temperature: 0.2, // 낮을수록 일관되고 정확한 답변
+        topK: 3,
+      }),
+      TIMEOUT_MS,
+      '내장 AI 모델 다운로드/생성 시간 초과'
+    );
+  } catch (e) {
+    throw new Error('내장 AI 세션 생성 실패: ' + (e.message || e));
+  }
 
   try {
     const stream = session.promptStreaming(question);
@@ -444,7 +467,14 @@ async function handleAsk() {
   setLoading(true);
 
   try {
-    // 1) 내장 AI(window.LanguageModel)가 존재하면 우선 사용
+    // 1) Gemini API 키가 있으면 우선 사용 (가장 안정적, 모든 Chrome에서 동작)
+    if (hasGeminiKey()) {
+      const answer = await askGemini(q);
+      addChatMessage(answer);
+      return;
+    }
+
+    // 2) API 키가 없으면 내장 AI(window.LanguageModel) 사용
     //    ('available' 뿐 아니라 'downloadable' 상태에서도 create()로 다운로드+사용 가능)
     const lm = await detectBuiltinLanguageModel();
     if (lm.available === 'available' || lm.available === 'downloadable') {
@@ -453,16 +483,9 @@ async function handleAsk() {
         addChatMessage(answer);
         return;
       } catch (e) {
-        // 내장 AI 호출 실패 시(모델 다운로드 불가 등) 서버 호출로 폴백
-        console.warn('[AI] 내장 AI 실패, 서버 호출로 폴백:', e.message);
+        // 내장 AI 호출 실패 시(모델 다운로드 불가 등) 안내로 폴백
+        console.warn('[AI] 내장 AI 실패:', e.message);
       }
-    }
-
-    // 2) 내장 AI가 없거나 실패했을 때만 Gemini API 키로 답변
-    if (hasGeminiKey()) {
-      const answer = await askGemini(q);
-      addChatMessage(answer);
-      return;
     }
 
     // 3) 둘 다 없으면 안내를 보여줍니다.
