@@ -70,10 +70,12 @@ webmcp-extension/
 ├── content.js          # 페이지의 WebMCP API와 통신
 ├── popup.html          # AI 비서 UI (닫기 버튼 포함)
 ├── popup.js            # AI 비서 로직 (내장 AI + Gemini + WebMCP)
-├── gemini-key.js       # Gemini API 키 저장 (선택)
+├── gemini-key.js       # Gemini API 키 저장 (로컬 전용 · GitHub에는 없음) ※ 아래 "🔑 Gemini API 키 설정" 참고
 ├── HISTORY.md          # 변경 이력 (버전별 변경 사항)
 └── icons/              # 아이콘 (16/48/128)
 ```
+
+> 📌 `gemini-key.js`는 **`.gitignore`에 등록되어 GitHub에 커밋되지 않습니다.** 새로 클론한 환경에서는 [🔑 Gemini API 키 설정](#-gemini-api-키-설정-gemini-keyjs)을 참고해 직접 만들어 주세요.
 
 ## 🚀 설치 방법
 
@@ -107,6 +109,49 @@ webmcp-extension/
 - 헤더의 상태 배지에서 내장 AI 활성 상태를 확인할 수 있습니다.
 
 > ⚠️ 내장 AI API는 아직 실험적입니다. Chrome 버전에 따라 AI 상태가 "미지원"으로 나올 수 있으며, 그 경우에도 WebMCP 툴 직접 호출은 정상 동작합니다. Gemini API 키가 있으면 `gemini-key.js`의 `GEMINI_API_KEY`에 입력해 안정적으로 사용할 수 있습니다.
+
+## 🔑 Gemini API 키 설정 (`gemini-key.js`)
+
+이 확장은 **Gemini API 키를 공개 저장소(GitHub)에 올리지 않기 위해** `gemini-key.js` 파일을 별도로 분리해 두었습니다.
+
+> ⚠️ **중요**: `gemini-key.js` 파일은 보안상 **GitHub에 커밋되지 않습니다.**
+> - 해당 위치(`https://github.com/ilyoungkim/webmcp_luvd/tree/master/webmcp-extension`)에는 `gemini-key.js`가 **존재하지 않습니다**.
+> - 이는 의도된 동작입니다. 키가 공개되면 악용될 수 있으므로 로컬에서만 관리해야 합니다.
+> - 프로젝트 루트의 `.gitignore`에 `webmcp-extension/gemini-key.js`가 등록되어 있어 자동으로 제외됩니다.
+
+### Gemini API 키를 만들고 사용하는 방법
+
+#### 1. API 키 발급 (무료)
+1. [Google AI Studio](https://aistudio.google.com/) 접속 → Google 계정 로그인
+2. 화면 왼쪽 메뉴에서 **"Get API key"**(또는 설정 → API 키) 클릭
+3. **"Create API key"** 클릭 → 무료 키가 생성됩니다.
+4. 생성된 키를 복사합니다. (형식 예: `AIza...`)
+
+#### 2. 로컬 파일에 키 입력
+`webmcp-extension/gemini-key.js` 파일을 열고 `GEMINI_API_KEY` 값을 방금 발급받은 키로 교체합니다.
+
+```js
+// gemini-key.js
+// ─────────────────────────────────────────────
+// ⚠️ 이 파일은 절대 GitHub에 커밋하지 마세요!
+//    .gitignore에 등록되어 로컬에서만 관리됩니다.
+// ─────────────────────────────────────────────
+const GEMINI_API_KEY = '여기에_발급받은_API_키를_입력';
+```
+
+> 📌 **이 파일은 GitHub에 없는 파일이므로**, 새로 클론(clone)한 환경에서는 직접 만들어 주어야 합니다. 위 예제 내용으로 `gemini-key.js`를 생성하면 됩니다.
+
+#### 3. 확장 프로그램 다시 로드
+1. `chrome://extensions` 이동
+2. 확장 프로그램에서 **새로고침** 아이콘 클릭
+3. AI 비서를 열면 **Gemini API 우선 사용**으로 동작합니다.
+
+### 키 동작 우선순위
+```
+① Gemini API 키 있음 → Gemini API 사용 (가장 안정적, 모든 Chrome에서 동작)
+② 없으면 Chrome 내장 AI (window.LanguageModel)
+③ 그 외 키워드 기반 폴백 라우팅
+```
 
 ## 🔧 동작 방식
 
