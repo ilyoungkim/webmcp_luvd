@@ -93,7 +93,7 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 #### ① 배포할 파일 (html 폴더 기준)
 
 ```
-웹서버 루트 (예: /var/www/html 또는 호스팅 public_html)
+Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 ├── html/
 │   ├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
 │   ├── diagnosis.html  # 진단 페이지
@@ -112,7 +112,7 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 | 메인 페이지 | `https://yonza.co.kr/html/yonja.html` |
 | 진단 페이지 | `https://yonza.co.kr/html/diagnosis.html` |
 
-> 💡 만약 루트(`https://yonza.co.kr/`)에서 바로 열리게 하려면, `html/` 폴더 안의 `yonja.html`을 웹서버 루트로 옮기거나, 서버에서 루트 요청을 `html/yonja.html`로 리다이렉트하면 됩니다.
+> 💡 만약 루트(`https://yonza.co.kr/`)에서 바로 열리게 하려면, `html/` 폴더 안의 `yonja.html`을 Nginx 웹 루트로 옮기거나, Nginx 설정에서 루트 요청을 `html/yonja.html`로 리다이렉트하면 됩니다.
 
 #### ③ Origin Trial 토큰 (실제 도메인에서만 동작)
 
@@ -153,7 +153,7 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 #### 1) 업로드할 파일 구성
 
 ```
-웹서버 루트 (예: /var/www/html 또는 호스팅 public_html)
+Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 ├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
 └── webmcp.js       # WebMCP 공통 라이브러리 (반드시 같은 폴더에)
 ```
@@ -233,8 +233,8 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 
 **Nginx 서버 예시**
 ```bash
-# 서버에 파일 복사
-scp yonja.html webmcp.js user@server:/var/www/html/
+# 서버에 파일 복사 (Nginx 웹 루트로)
+scp yonja.html webmcp.js user@server:/usr/share/nginx/html/
 
 # 접속 확인
 curl -I https://도메인/yonja.html
