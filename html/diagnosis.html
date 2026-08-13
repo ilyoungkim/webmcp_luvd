@@ -80,5 +80,15 @@ window.WebMCPConfig = {
   ]
 };
 </script>
-<script type="module" src="https://yonza.co.kr/js/webmcp.js"></script>
+<!-- localhost에서는 CORS를 피해 로컬 파일을 로드, 프로덕션에서는 절대경로 사용 -->
+<script>
+  (function() {
+    var s = document.createElement('script');
+    s.type = 'module';
+    s.src = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+      ? '/js/webmcp.js'
+      : 'https://yonza.co.kr/js/webmcp.js';
+    document.currentScript.parentNode.insertBefore(s, document.currentScript.nextSibling);
+  })();
+</script>
 </body></html>

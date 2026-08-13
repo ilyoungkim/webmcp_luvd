@@ -1,5 +1,5 @@
 # 연애의 자격 AI 비서
-Version: 0.2.0.1 (내부 알파 build 200)
+Version: 2.1.0 (내부 알파 build 200)
 
 연애의 자격 AI 비서는 WebMCP 기반으로 연애의 자격 서비스의 핵심 정보를 빠르게 확인하고, Chrome 내장 AI와 연동해 상담·진단·서비스 안내를 한 번에 도와주는 확장 프로그램입니다. Chrome 내장 AI가 지원될 경우 자연어 질문을 이해해 적절한 도구를 자동으로 호출하고, 지원되지 않는 환경에서는 키워드 기반 fallback으로 안정적으로 동작합니다.
 
@@ -91,6 +91,14 @@ webmcp-extension/
    - 우측 상단 **개발자 모드** 켜기
    - **압축해제된 확장 프로그램을 로드합니다** 클릭
    - `webmcp-extension/` 폴더 선택
+
+   > ⚠️ Chrome은 `_`로 시작하는 파일/폴더명(`__pycache__` 등)을 거부합니다.
+   > Python 스크립트 실행 후 로드 오류가 나면 아래를 실행한 뒤 다시 로드하세요.
+   > ```bash
+   > python3 webmcp-extension/build_extension.py --clean-only
+   > # 또는
+   > rm -rf webmcp-extension/__pycache__
+   > ```
 
 3. **사용**
    - `yonja.html`이 열린 탭에서 툴바의 💘 아이콘 클릭

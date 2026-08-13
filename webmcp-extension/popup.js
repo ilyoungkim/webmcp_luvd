@@ -347,6 +347,18 @@ function hasGeminiKey() {
   return typeof GEMINI_API_KEY === 'string' && GEMINI_API_KEY.length > 0;
 }
 
+/**
+ * Chrome Prompt API(LanguageModel) 공통 옵션.
+ * 출력 언어를 반드시 지정해야 경고/품질 저하를 피할 수 있습니다.
+ * 지원 언어 코드: de, en, es, fr, ja (현재 ko 미지원)
+ */
+const LANGUAGE_MODEL_OPTIONS = {
+  expectedInputs: [{ type: 'text', languages: ['en'] }],
+  expectedOutputs: [{ type: 'text', languages: ['en'] }],
+  // 일부 Chrome 버전 호환용 (deprecated 가능)
+  outputLanguage: 'en',
+};
+
 /** 최신 표준 내장 AI(window.LanguageModel) 지원 여부를 감지합니다. */
 async function detectBuiltinLanguageModel() {
   const LM = window.LanguageModel;
@@ -354,7 +366,8 @@ async function detectBuiltinLanguageModel() {
     return { available: 'unavailable', reason: 'window.LanguageModel 없음' };
   }
   try {
-    const availability = await LM.availability();
+    // availability()에도 create/prompt와 동일한 언어 옵션을 넘겨야 합니다.
+    const availability = await LM.availability(LANGUAGE_MODEL_OPTIONS);
     // 상태값: 'available' | 'downloadable' | 'unavailable'
     return {
       available: availability,
@@ -403,7 +416,7 @@ function withTimeout(promise, ms, message) {
 /** 내장 AI(window.LanguageModel)로 답변을 받습니다. */
 async function askBuiltinLanguageModel(question) {
   const LM = window.LanguageModel;
-  const availability = await LM.availability();
+  const availability = await LM.availability(LANGUAGE_MODEL_OPTIONS);
   if (availability === 'unavailable') {
     throw new Error('이 기기는 사양이 부족하여 내장 AI를 실행할 수 없습니다.');
   }
@@ -442,23 +455,28 @@ async function askBuiltinLanguageModel(question) {
     '- 송기훈 (연애의자격 플랜상담사, ID 2): 내담자의 발전·성장을 도모하는 상담, 바람·환승·불안케어 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
     '- 최희주 (연애의자격 플랜상담사, ID 6): 다정한 단호함으로 상담하는 재회 전문 상담사, 헤붙·불안·연애미숙 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
     '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n' +
-    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [이승진](https://yonza.co.kr/counseling-introduction/3), [허아윤](https://yonza.co.kr/counseling-introduction/5), [권요셉](https://yonza.co.kr/counseling-introduction/7), [장재원](https://yonza.co.kr/counseling-introduction/4), [송기훈](https://yonza.co.kr/counseling-introduction/2), [최희주](https://yonza.co.kr/counseling-introduction/6) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요. 상담사 전체 목록은 [상담사 소개 페이지](https://yonza.co.kr/counseling-introduction) 링크도 안내하세요.\n\n' +    '=== 재회 가능성 진단지 제출 방법 ===\n' +
+    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [이승진](https://yonza.co.kr/counseling-introduction/3), [허아윤](https://yonza.co.kr/counseling-introduction/5), [권요셉](https://yonza.co.kr/counseling-introduction/7), [장재원](https://yonza.co.kr/counseling-introduction/4), [송기훈](https://yonza.co.kr/counseling-introduction/2), [최희주](https://yonza.co.kr/counseling-introduction/6) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요. 상담사 전체 목록은 [상담사 소개 페이지](https://yonza.co.kr/counseling-introduction) 링크도 안내하세요.\n\n' +
+    '=== 재회 가능성 진단지 제출 방법 ===\n' +
     '연애의자격은 무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리는 무료 진단지를 제공합니다. 진단을 통해 이별 원인 정밀 분석, 관계 회복을 위한 결정적 힌트, 안전한 재회 타이밍을 확인할 수 있으며, 14만+ 상담 사례 기반으로 재회 가능성과 우선 대응 방향을 안내합니다.\n' +
     '진단지 제출 방법:\n' +
     '1. 진단지 작성 링크(https://form.yonja.co.kr/?introounselor=448)로 이동합니다.\n' +
     '2. 이름, 성별, 이별 기간, 이별 사유, 재회 목적 등 상황을 입력합니다.\n' +
     '3. 제출 후 담당 상담사가 재회 가능성과 대응 방향을 안내합니다.\n' +
-    '개인정보는 비공개로 안전하게 보호됩니다. 사용자가 재회 가능성 진단을 원하거나 진단지 제출 방법을 물어보면 위 링크와 제출 방법, 그리고 "무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리겠습니다"라는 취지의 안내를 함께 전달하세요.\n\n' +    '⚠️ 답변 마지막에 \"[서비스 소개 보기](...)\", \"상담사 정보 조회\", \"재회 가능성 진단 제출\", \"필요하신 기능이 있다면 편하게 말씀해 주시길 바랍니다.\" 같은 기능 목록이나 안내 문구를 추가하지 마세요. 사용자가 요청한 내용에 대해서만 간결하게 답변하세요.';
+    '개인정보는 비공개로 안전하게 보호됩니다. 사용자가 재회 가능성 진단을 원하거나 진단지 제출 방법을 물어보면 위 링크와 제출 방법, 그리고 "무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리겠습니다"라는 취지의 안내를 함께 전달하세요.\n\n' +
+    '⚠️ 답변 마지막에 "[서비스 소개 보기](...)", "상담사 정보 조회", "재회 가능성 진단 제출", "필요하신 기능이 있다면 편하게 말씀해 주시길 바랍니다." 같은 기능 목록이나 안내 문구를 추가하지 마세요. 사용자가 요청한 내용에 대해서만 간결하게 답변하세요.';
 
   // 'downloadable' 상태는 모델 다운로드가 필요하므로, 다운로드가 오래 걸리면
   // 서버 호출로 폴백할 수 있도록 타임아웃을 적용합니다.
   const TIMEOUT_MS = 15000; // 15초
   let session;
   try {
+    // 최신 Prompt API: expectedOutputs 언어 필수 (지원: de,en,es,fr,ja — ko 없음)
+    // systemPrompt는 initialPrompts로 전달 (구 systemPrompt 옵션도 함께 유지)
     session = await withTimeout(
       LM.create({
-        systemPrompt,
-        outputLanguage: 'en', // 필수: 내장 LanguageModel은 출력 언어 지정 요구 (지원: de,en,es,fr,ja)
+        ...LANGUAGE_MODEL_OPTIONS,
+        initialPrompts: [{ role: 'system', content: systemPrompt }],
+        systemPrompt, // 구버전 Chrome 호환
         temperature: 0.2, // 낮을수록 일관되고 정확한 답변
         topK: 3,
       }),

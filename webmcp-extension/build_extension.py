@@ -2,9 +2,14 @@
 import argparse
 import json
 import re
+import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
+
+# Chrome은 "_"로 시작하는 파일/폴더명(__pycache__ 등)을 거부합니다.
+sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parent
 MANIFEST_PATH = ROOT / 'manifest.json'
@@ -58,6 +63,22 @@ def update_readme(current: str, next_version: str) -> None:
 
 
 def validate_pre_build() -> None:
+    # Chrome은 "_" 접두 폴더를 거부하므로 먼저 제거합니다.
+    for d in sorted(ROOT.rglob('__pycache__'), reverse=True):
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+
+    reserved = [
+        str(p.relative_to(ROOT))
+        for p in ROOT.rglob('*')
+        if p.name.startswith('_')
+    ]
+    if reserved:
+        raise ValueError(
+            'Chrome은 "_"로 시작하는 파일/폴더를 로드할 수 없습니다: '
+            + ', '.join(reserved)
+        )
+
     required_files = [
         MANIFEST_PATH,
         README_PATH,
@@ -126,6 +147,11 @@ def zip_extension(version: str) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description='WebMCP 확장 프로그램 버전 증가 및 zip 패키징')
     parser.add_argument('--dry-run', action='store_true', help='버전만 미리 확인하고 실제 변경은 하지 않습니다.')
+    parser.add_argument(
+        '--version',
+        metavar='X.Y.Z[.B]',
+        help='지정한 버전으로 설정합니다 (예: 2.1.0). 미지정 시 자동으로 +1 증가합니다.',
+    )
     args = parser.parse_args()
 
     try:
@@ -135,7 +161,14 @@ def main() -> int:
         return 1
 
     current = read_version()
-    next_version = bump_version(current)
+
+    if args.version:
+        if not VERSION_RE.match(args.version):
+            print(f'지원하지 않는 버전 형식입니다: {args.version!r}. 기대 형식: 0.1.1.3')
+            return 1
+        next_version = args.version
+    else:
+        next_version = bump_version(current)
 
     print(f'current: {current}')
     print(f'next:    {next_version}')
