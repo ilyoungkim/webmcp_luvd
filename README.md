@@ -96,12 +96,12 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 ├── html/
 │   ├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
-│   ├── diagnosis.html  # 진단 페이지
-│   ├── webmcp.js       # WebMCP 공통 라이브러리 (HTML과 같은 폴더 필수)
-│   └── webmcp.md       # WebMCP 문서 (선택)
+│   └── diagnosis.html  # 진단 페이지
+└── js/
+    └── webmcp.js       # WebMCP 공통 라이브러리 (절대 경로로 참조)
 ```
 
-> 📌 `yonja.html`과 `webmcp.js`는 **반드시 같은 폴더(`html/`)에** 있어야 합니다. HTML이 `./webmcp.js`(상대경로)로 참조하기 때문입니다.
+> 📌 `webmcp.js`는 **`https://yonza.co.kr/js/webmcp.js`** 에 위치합니다. HTML은 절대 경로(`https://yonza.co.kr/js/webmcp.js`)로 참조하므로, `html/` 폴더와 `js/` 폴더가 서로 다른 위치에 있어도 됩니다.
 
 #### ② 접속 URL
 
@@ -148,17 +148,19 @@ Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 
 ### A. 웹사이트(HTML) 배포 — `yonja.html` 예제 기준
 
-운영 서버에 올려야 하는 파일은 **`yonja.html`과 `webmcp.js`** 두 개입니다. `webmcp.js`는 WebMCP 도구를 등록하는 공통 라이브러리로, HTML이 이 파일을 참조합니다.
+운영 서버에 올려야 하는 파일은 **`yonja.html`(html 폴더)과 `webmcp.js`(js 폴더)** 입니다. `webmcp.js`는 WebMCP 도구를 등록하는 공통 라이브러리로, HTML이 절대 경로로 이 파일을 참조합니다.
 
 #### 1) 업로드할 파일 구성
 
 ```
 Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
-├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
-└── webmcp.js       # WebMCP 공통 라이브러리 (반드시 같은 폴더에)
+├── html/
+│   └── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
+└── js/
+    └── webmcp.js       # WebMCP 공통 라이브러리 (절대 경로로 참조)
 ```
 
-> ⚠️ `webmcp.js`는 `yonja.html`과 **같은 디렉터리**에 있어야 합니다. `yonja.html`이 `./webmcp.js`(상대경로)로 참조하기 때문입니다.
+> ⚠️ `webmcp.js`는 **`https://yonza.co.kr/js/webmcp.js`** 에 위치합니다. `yonja.html`은 절대 경로(`https://yonza.co.kr/js/webmcp.js`)로 참조하므로, `html/` 폴더와 `js/` 폴더가 분리되어 있어도 정상 동작합니다.
 
 #### 2) `yonja.html`에서 WebMCP를 참조하는 방법
 
@@ -218,8 +220,8 @@ Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 <body>
   <!-- ... 페이지 내용 ... -->
 
-  <!-- WebMCPConfig가 정의된 뒤, 마지막에 webmcp.js를 로드 -->
-  <script type="module" src="./webmcp.js"></script>
+  <!-- WebMCPConfig가 정의된 뒤, 마지막에 webmcp.js를 절대 경로로 로드 -->
+  <script type="module" src="https://yonza.co.kr/js/webmcp.js"></script>
 </body>
 ```
 
@@ -228,20 +230,21 @@ Nginx 웹 루트 (예: /usr/share/nginx/html 또는 /var/www/html)
 #### 3) 운영 서버에 올리는 방법 (예시)
 
 **FTP/호스팅 파일 매니저 사용 시**
-- `yonja.html`과 `webmcp.js`를 웹 루트에 업로드
+- `yonja.html`을 `html/` 폴더에, `webmcp.js`를 `js/` 폴더에 업로드
 - 브라우저에서 `https://도메인/yonja.html` 접속 확인
 
 **Nginx 서버 예시**
 ```bash
 # 서버에 파일 복사 (Nginx 웹 루트로)
-scp yonja.html webmcp.js user@server:/usr/share/nginx/html/
+scp html/yonja.html user@server:/usr/share/nginx/html/
+scp js/webmcp.js user@server:/usr/share/nginx/js/
 
 # 접속 확인
 curl -I https://도메인/yonja.html
 ```
 
 **GitHub Pages / Netlify / Vercel 사용 시**
-- 저장소 루트에 `yonja.html`, `webmcp.js`를 두고 배포
+- 저장소의 `html/` 폴더와 `js/` 폴더를 그대로 배포
 - 정적 호스팅이므로 별도 서버 설정 불필요
 
 ### B. Chrome 확장 프로그램 배포
@@ -378,7 +381,7 @@ python3 build_extension.py
 
 ### C. 배포 전 체크리스트
 
-- [ ] `yonja.html`과 `webmcp.js`가 같은 폴더에 있는가?
+- [ ] `webmcp.js`가 `https://yonza.co.kr/js/webmcp.js`에 있는가?
 - [ ] `WebMCPConfig`가 `webmcp.js`보다 먼저 로드되는가?
 - [ ] Origin Trial 토큰이 운영 도메인에 맞게 등록되어 있는가?
 - [ ] `gemini-key.js`가 배포 zip에 포함되지 않았는가?
