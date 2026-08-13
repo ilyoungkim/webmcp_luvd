@@ -86,6 +86,66 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
 
 실제 운영(프로덕션)에 배포하려면 **웹사이트 파일 업로드**와 **Chrome 확장 프로그램 배포** 두 가지가 필요합니다. 아래에서 파일별로 자세히 설명합니다.
 
+### 0. 실제 서버 `https://yonza.co.kr` 배포 (핵심 요약)
+
+이 프로젝트는 실제 운영 도메인 **`https://yonza.co.kr`** 을 기준으로 설계되었습니다. 아래는 그 도메인에 배포할 때의 핵심 사항입니다.
+
+#### ① 배포할 파일 (html 폴더 기준)
+
+```
+웹서버 루트 (예: /var/www/html 또는 호스팅 public_html)
+├── html/
+│   ├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
+│   ├── diagnosis.html  # 진단 페이지
+│   ├── webmcp.js       # WebMCP 공통 라이브러리 (HTML과 같은 폴더 필수)
+│   └── webmcp.md       # WebMCP 문서 (선택)
+```
+
+> 📌 `yonja.html`과 `webmcp.js`는 **반드시 같은 폴더(`html/`)에** 있어야 합니다. HTML이 `./webmcp.js`(상대경로)로 참조하기 때문입니다.
+
+#### ② 접속 URL
+
+배포 후 접속 주소는 다음과 같습니다.
+
+| 페이지 | URL |
+|--------|-----|
+| 메인 페이지 | `https://yonza.co.kr/html/yonja.html` |
+| 진단 페이지 | `https://yonza.co.kr/html/diagnosis.html` |
+
+> 💡 만약 루트(`https://yonza.co.kr/`)에서 바로 열리게 하려면, `html/` 폴더 안의 `yonja.html`을 웹서버 루트로 옮기거나, 서버에서 루트 요청을 `html/yonja.html`로 리다이렉트하면 됩니다.
+
+#### ③ Origin Trial 토큰 (실제 도메인에서만 동작)
+
+`yonja.html`의 `<head>`에 등록된 Origin Trial 토큰은 **`https://yonza.co.kr` 도메인에서만 유효**합니다.
+
+- `localhost`에서는 토큰이 비활성화되어 WebMCP 실험 기능이 동작하지 않습니다.
+- 실제 도메인에 배포해야 WebMCP 도구가 정상 등록됩니다.
+- 토큰 만료일: WebMCP **2026-11-17**, Prompt API **2026-10-06** (만료 전 갱신 필요)
+
+#### ④ 확장 프로그램과의 연결
+
+확장 프로그램(`webmcp-extension/`)의 `manifest.json`에 이미 `https://yonza.co.kr/*` 호스트 권한이 등록되어 있습니다.
+
+```json
+"host_permissions": [
+  "http://localhost:8000/*",
+  "https://yonja.co.kr/*",
+  "https://yonza.co.kr/*",
+  ...
+]
+```
+
+따라서 `https://yonza.co.kr/html/yonja.html`을 열면 확장 프로그램이 WebMCP 도구를 감지해 "✅ 연결됨" 상태로 표시됩니다.
+
+#### ⑤ 배포 후 확인 절차
+
+1. 브라우저에서 `https://yonza.co.kr/html/yonja.html` 접속
+2. 확장 프로그램 아이콘 클릭 → **"✅ 연결됨"** 확인
+3. "서비스 소개", "상담사", "진단 제출" 등 질문 → 정상 응답 확인
+4. Chrome DevTools 콘솔에서 WebMCP 도구 등록 로그 확인
+
+> ⚠️ **주의**: `https://yonza.co.kr`에 배포하기 전에 반드시 **HTTPS(SSL 인증서)** 가 적용되어 있어야 합니다. WebMCP Origin Trial과 확장 프로그램 모두 HTTPS를 요구합니다.
+
 ### A. 웹사이트(HTML) 배포 — `yonja.html` 예제 기준
 
 운영 서버에 올려야 하는 파일은 **`yonja.html`과 `webmcp.js`** 두 개입니다. `webmcp.js`는 WebMCP 도구를 등록하는 공통 라이브러리로, HTML이 이 파일을 참조합니다.
