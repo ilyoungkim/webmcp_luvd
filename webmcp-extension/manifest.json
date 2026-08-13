@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "연애의 자격 AI 비서",
-  "version": "0.2.0.0",
+  "version": "0.2.0.1",
   "description": "연애의 자격 서비스의 핵심 정보를 빠르게 확인하고, Chrome 내장 AI와 연동해 상담·진단·서비스 안내를 한 번에 도와주는 AI 비서입니다. 내장 AI가 지원되면 자연어로 연동하고, 지원되지 않는 환경에서는 키워드 기반 fallback으로 안정적으로 동작합니다.",
   "permissions": [
     "activeTab",

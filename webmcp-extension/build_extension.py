@@ -94,8 +94,8 @@ def validate_pre_build() -> None:
         raise ValueError(f'popup.js 문법 오류:\n{result.stderr}')
 
     html = (ROOT / 'popup.html').read_text(encoding='utf-8')
-    if 'id="aiWarning"' not in html:
-        raise ValueError('popup.html에 AI 경고 영역이 없습니다.')
+    if 'id="closeBtn"' not in html:
+        raise ValueError('popup.html에 닫기 버튼(#closeBtn)이 없습니다.')
 
     text = README_PATH.read_text(encoding='utf-8')
     if 'Version:' not in text:
