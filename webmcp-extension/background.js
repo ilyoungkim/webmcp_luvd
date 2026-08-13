@@ -35,7 +35,45 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (changeInfo.status === 'complete') updateBadge();
 });
 
-// 주소창 앞 "확장" 버튼 클릭 시에도 배지 갱신
-chrome.action.onClicked.addListener(updateBadge);
+// 주소창 앞 "확장" 버튼 클릭 시 별도 창으로 AI 비서를 엽니다.
+// 팝업은 화면/탭 전환 시 자동으로 닫히지만, 별도 창(window)은 유지됩니다.
+const POPUP_WINDOW_URL = chrome.runtime.getURL('popup.html');
+let popupWindowId = null;
+
+async function openAssistantWindow() {
+  // 이미 연 창이 있으면 앞으로 가져오기만 합니다.
+  if (popupWindowId != null) {
+    try {
+      const win = await chrome.windows.get(popupWindowId);
+      if (win) {
+        chrome.windows.update(popupWindowId, { focused: true });
+        return;
+      }
+    } catch {
+      popupWindowId = null; // 창이 닫힌 경우 초기화
+    }
+  }
+
+  const win = await chrome.windows.create({
+    url: POPUP_WINDOW_URL,
+    type: 'popup',
+    width: 480,
+    height: 720,
+    focused: true,
+  });
+  popupWindowId = win.id;
+}
+
+chrome.action.onClicked.addListener(() => {
+  updateBadge();
+  openAssistantWindow();
+});
+
+// 연 창이 닫히면 ID를 초기화해 다음 클릭 시 새 창을 열 수 있게 합니다.
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === popupWindowId) {
+    popupWindowId = null;
+  }
+});
 
 updateBadge();

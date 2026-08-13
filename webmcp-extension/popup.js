@@ -6,6 +6,47 @@
 
 const $ = (sel) => document.querySelector(sel);
 
+/**
+ * AI 비서가 참조할 웹 탭을 찾습니다.
+ * 별도 창(window)으로 열리면 이 창의 활성 탭은 chrome-extension:// 이므로,
+ * 마지막으로 포커스된 일반 브라우저 창의 활성 탭을 반환합니다.
+ */
+async function getTargetTab() {
+  // 1) 현재 창이 일반 브라우저 창(type: 'normal')이고 활성 탭이 http(s)면 그대로 사용
+  try {
+    const win = await chrome.windows.getCurrent();
+    if (win && win.type === 'normal') {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab && tab.id && /^https?:/.test(tab.url || '')) {
+        return tab;
+      }
+    }
+  } catch {}
+
+  // 2) 마지막으로 사용된 일반 창의 활성 탭 찾기
+  const wins = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
+  for (const w of wins) {
+    if (!w.tabs) continue;
+    for (const t of w.tabs) {
+      if (t.active && t.id && /^https?:/.test(t.url || '')) {
+        return t;
+      }
+    }
+  }
+
+  // 3) 그 외 임의의 http(s) 탭 (첫 번째 매칭)
+  const tabs = await chrome.tabs.query({});
+  for (const t of tabs) {
+    if (t.id && /^https?:/.test(t.url || '')) {
+      return t;
+    }
+  }
+  return null;
+}
+
 /** 현재 활성 탭의 WebMCP 상태를 조회합니다. */
 async function sendMessageToTab(tabId, message) {
   return await new Promise((resolve) => {
@@ -23,7 +64,7 @@ async function sendMessageToTab(tabId, message) {
 }
 
 async function queryWebMCP() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await getTargetTab();
   if (!tab || !tab.id) {
     return { ok: false, reason: '탭이 없습니다.' };
   }
@@ -70,7 +111,7 @@ async function queryWebMCP() {
 
 /** 활성 탭에서 WebMCP 툴을 직접 호출합니다. */
 async function invokeTool(tool, args) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await getTargetTab();
   if (!tab || !tab.id) return { error: true, message: '탭 없음' };
 
   // content script는 isolated world라서 페이지의 window.WebMCPConfig에 접근할 수 없습니다.
@@ -107,7 +148,7 @@ async function invokeTool(tool, args) {
 
 
 async function queryPageInfo() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = await getTargetTab();
   if (!tab || !tab.id) {
     return { ok: false, reason: '탭이 없습니다.' };
   }
@@ -371,22 +412,43 @@ async function askBuiltinLanguageModel(question) {
     '당신은 연애의자격(yonja) 웹사이트의 AI 비서입니다. ' +
     '사용자의 질문에 친절하고 정확하게 답변하세요. ' +
     '서비스/상담사/진단 관련 질문에는 제공된 정보를 바탕으로 답하고, ' +
-    '필요하면 다음 기능을 안내하세요: 서비스 가격 조회, 상담사 정보 조회, 재회 가능성 진단 제출. ' +
+    '필요하면 다음 기능을 안내하세요: 서비스 소개, 서비스 가격 조회, 상담사 정보 조회, 재회 가능성 진단 제출. ' +
     '항상 한국어로 자연스럽게 답변하세요. ' +
     '⚠️ 절대 내부 API 이름(yonja.service.get_info, yonja.consultant.get_info, yonja.diagnosis.submit 등)을 사용자에게 노출하지 마세요. 기능명만 자연스럽게 안내하세요.\n\n' +
-    '=== 연애의자격 서비스 가격표 ===\n' +
-    '- 단회 상담: 300,000원\n' +
-    '- 플랜 상담: 1,200,000원\n' +
-    '- 재회 집중 상담: 2,000,000원\n' +
-    '사용자가 서비스 가격을 물어보면 반드시 위 가격표를 정확히 알려주세요.\n\n' +
+    '=== 연애의자격 서비스 소개 ===\n' +
+    '연애의자격은 재회·연애 상담 전문 서비스입니다. 재회 심리 전문가 상담과 AI 데이터 분석으로 재회 전략을 제공하며, 상대 애착유형 분석·골든타이밍 전략·소구점 파악까지 근거 기반 1:1 맞춤 재회 상담을 제공합니다. 자세한 서비스 소개는 [서비스 소개 페이지](https://yonza.co.kr/introduction) 링크를 안내하세요.\n' +
+    '사용자가 서비스 소개를 물어보면 위 설명과 서비스 소개 링크를 안내하세요. 서비스 소개 안내 시에는 가격 정보를 포함하지 마세요.\n\n' +
+    '=== 연애의자격 유튜브 채널 ===\n' +
+    '연애의자격은 재회 전문 유튜브 채널을 운영하며, 이별 후 재회 전략과 심리 분석을 다루는 무료 재회특강 영상을 제공합니다.\n' +
+    '대표 재회특강 영상:\n' +
+    '- [후폭풍 설계 재회 전략](https://yonza.co.kr/youtube-channel/1): 전애인의 머릿속에 후폭풍을 설계하는 방법\n' +
+    '- [신뢰 깨진 경우 재회](https://yonza.co.kr/youtube-channel/2): 바람·거짓말·파혼 등 신뢰가 깨진 상황의 재회 전략\n' +
+    '- [최적의 연락 타이밍](https://yonza.co.kr/youtube-channel/3): 이별 후 연락하면 안 되는 이유와 최적 타이밍\n' +
+    '- [100% 재회하는 3단계](https://yonza.co.kr/youtube-channel/4): 재회 성공 3단계 프로세스와 성공 사례\n' +
+    '- [가장 위험한 조언 3가지](https://yonza.co.kr/youtube-channel/5): 지인 조언이 독이 되는 심리적 내막\n' +
+    '사용자가 유튜브 채널이나 재회특강 영상을 물어보면 위 채널 링크와 대표 영상들을 안내하세요.\n\n' +
+    '=== 연애의자격 서비스 가격표 (쇼핑몰 yonza.shop 판매가 기준) ===\n' +
+    '- 급상담: 100,000원 (원가 120,000원, 17% 할인) - 당일예약으로 솔루션을 듣는 1회 긴급 전화 상담\n' +
+    '- 재회 기본상담(기본상담패키지): 350,000원 (원가 420,000원, 17% 할인) - 전화상담 + 마음다잡기 피드백 5회\n' +
+    '- 재회 세미플랜: 970,000원 (원가 1,100,000원, 12% 할인) - 전화상담 + 마음다잡기 피드백 20회\n' +
+    '- 플랜 골드: 3,000,000원 (원가 4,000,000원) - 헤어진 연인을 다시 만나고 싶을 때의 프리미엄 상담\n' +
+    '- 싱글플랜: 1,500,000원 (원가 2,320,000원) - 좋은 상대를 찾고 행복하기 위한 상담\n' +
+    '사용자가 서비스 가격을 명시적으로 물어볼 때만 위 가격표를 정확히 알려주세요. 가격은 상담 종류(급상담 · 기본상담패키지 · 단회상담 · 후속상담 · 심화교육)와 담당 상담사, 프로그램에 따라 다르며, 자세한 내용은 상품 페이지(https://yonza.shop/page/index?tpl=main%2Fproductlist.html)를 안내하세요. 서비스 소개·전반 안내에서는 가격을 나열하지 마세요.\n\n' +
     '=== 연애의자격 상담사 목록 ===\n' +
-    '- 김연애 원장 (ID 448): 이별·재회 전문, 경력 12년, 평점 4.9\n' +
-    '- 이마음 상담사 (ID 512): 연애 고민 전문, 경력 8년, 평점 4.8\n' +
-    '- 박사랑 상담사 (ID 601): 권태기·재회 전문, 경력 10년, 평점 4.9\n' +
-    '- 최희망 상담사 (ID 602): 이별 극복·심리상담 전문, 경력 7년, 평점 4.7\n' +
-    '- 정용기 상담사 (ID 603): 연애 심리·갈등 해결 전문, 경력 9년, 평점 4.8\n' +
+    '- 이승진 (CLV 상담팀 총괄 팀장 · 대표상담사, ID 3): 해결불가급·고위험군·고난이도 특수 사례 전문, 자살예방·알콜중독·바람, 심리상담사 1급\n' +
+    '- 허아윤 (CLV 상담팀 팀장 · 대표상담사, ID 5): 쉽고 정확한 분석과 빠른 목표지향 상담, 파혼·이혼·헤붙 전문, 심리상담사 1급\n' +
+    '- 권요셉 (연애의자격 플랜상담사, ID 7): 교류분석·인문융합 기반 플랜상담, 인문융합치료학 박사 · 인하대 초빙교수, 불안한 사랑·이혼갈등·인문융합치료 전문\n' +
+    '- 장재원 (연애의자격 플랜상담사, ID 4): 16년 전문성의 박사 출신 상담사, 이성관계·연애심리상담·부부치료 전문, 아주대 상담심리학 박사 수료\n' +
+    '- 송기훈 (연애의자격 플랜상담사, ID 2): 내담자의 발전·성장을 도모하는 상담, 바람·환승·불안케어 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
+    '- 최희주 (연애의자격 플랜상담사, ID 6): 다정한 단호함으로 상담하는 재회 전문 상담사, 헤붙·불안·연애미숙 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
     '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n' +
-    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [김연애 원장](https://yonza.co.kr/counseling-introduction), [이마음 상담사](https://yonza.co.kr/counseling-introduction) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요.';
+    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [이승진](https://yonza.co.kr/counseling-introduction/3), [허아윤](https://yonza.co.kr/counseling-introduction/5), [권요셉](https://yonza.co.kr/counseling-introduction/7), [장재원](https://yonza.co.kr/counseling-introduction/4), [송기훈](https://yonza.co.kr/counseling-introduction/2), [최희주](https://yonza.co.kr/counseling-introduction/6) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요. 상담사 전체 목록은 [상담사 소개 페이지](https://yonza.co.kr/counseling-introduction) 링크도 안내하세요.\n\n' +    '=== 재회 가능성 진단지 제출 방법 ===\n' +
+    '연애의자격은 무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리는 무료 진단지를 제공합니다. 진단을 통해 이별 원인 정밀 분석, 관계 회복을 위한 결정적 힌트, 안전한 재회 타이밍을 확인할 수 있으며, 14만+ 상담 사례 기반으로 재회 가능성과 우선 대응 방향을 안내합니다.\n' +
+    '진단지 제출 방법:\n' +
+    '1. 진단지 작성 링크(https://form.yonja.co.kr/?introounselor=448)로 이동합니다.\n' +
+    '2. 이름, 성별, 이별 기간, 이별 사유, 재회 목적 등 상황을 입력합니다.\n' +
+    '3. 제출 후 담당 상담사가 재회 가능성과 대응 방향을 안내합니다.\n' +
+    '개인정보는 비공개로 안전하게 보호됩니다. 사용자가 재회 가능성 진단을 원하거나 진단지 제출 방법을 물어보면 위 링크와 제출 방법, 그리고 "무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리겠습니다"라는 취지의 안내를 함께 전달하세요.\n\n' +    '⚠️ 답변 마지막에 \"[서비스 소개 보기](...)\", \"상담사 정보 조회\", \"재회 가능성 진단 제출\", \"필요하신 기능이 있다면 편하게 말씀해 주시길 바랍니다.\" 같은 기능 목록이나 안내 문구를 추가하지 마세요. 사용자가 요청한 내용에 대해서만 간결하게 답변하세요.';
 
   // 'downloadable' 상태는 모델 다운로드가 필요하므로, 다운로드가 오래 걸리면
   // 서버 호출로 폴백할 수 있도록 타임아웃을 적용합니다.
@@ -429,25 +491,42 @@ async function askGemini(question) {
     '당신은 연애의자격(yonja) 웹사이트의 AI 비서입니다. ' +
     '사용자의 질문에 친절하고 정확하게 답변하세요. ' +
     '서비스/상담사/진단 관련 질문에는 제공된 정보를 바탕으로 답하고, ' +
-    '필요하면 다음 기능을 안내하세요: 서비스 가격 조회, 상담사 정보 조회, 재회 가능성 진단 제출.\n' +
+    '필요하면 다음 기능을 안내하세요: 서비스 소개, 서비스 가격 조회, 상담사 정보 조회, 재회 가능성 진단 제출.\n' +
     '⚠️ 절대 내부 API 이름(yonja.service.get_info, yonja.consultant.get_info, yonja.diagnosis.submit 등)을 사용자에게 노출하지 마세요. 기능명만 자연스럽게 안내하세요.\n\n' +
-    '=== 연애의자격 서비스 가격표 ===\n' +
-    '- 단회 상담: 300,000원\n' +
-    '- 플랜 상담: 1,200,000원\n' +
-    '- 재회 집중 상담: 2,000,000원\n' +
-    '사용자가 서비스 가격을 물어보면 반드시 위 가격표를 정확히 알려주세요.\n\n' +
+    '=== 연애의자격 서비스 소개 ===\n' +
+    '연애의자격은 재회·연애 상담 전문 서비스입니다. 재회 심리 전문가 상담과 AI 데이터 분석으로 재회 전략을 제공하며, 상대 애착유형 분석·골든타이밍 전략·소구점 파악까지 근거 기반 1:1 맞춤 재회 상담을 제공합니다. 자세한 서비스 소개는 [서비스 소개 페이지](https://yonza.co.kr/introduction) 링크를 안내하세요.\n' +
+    '사용자가 서비스 소개를 물어보면 위 설명과 서비스 소개 링크를 안내하세요. 서비스 소개 안내 시에는 가격 정보를 포함하지 마세요.\n\n' +
+    '=== 연애의자격 유튜브 채널 ===\n' +
+    '연애의자격은 재회 전문 유튜브 채널을 운영하며, 이별 후 재회 전략과 심리 분석을 다루는 무료 재회특강 영상을 제공합니다.\n' +
+    '대표 재회특강 영상:\n' +
+    '- [후폭풍 설계 재회 전략](https://yonza.co.kr/youtube-channel/1): 전애인의 머릿속에 후폭풍을 설계하는 방법\n' +
+    '- [신뢰 깨진 경우 재회](https://yonza.co.kr/youtube-channel/2): 바람·거짓말·파혼 등 신뢰가 깨진 상황의 재회 전략\n' +
+    '- [최적의 연락 타이밍](https://yonza.co.kr/youtube-channel/3): 이별 후 연락하면 안 되는 이유와 최적 타이밍\n' +
+    '- [100% 재회하는 3단계](https://yonza.co.kr/youtube-channel/4): 재회 성공 3단계 프로세스와 성공 사례\n' +
+    '- [가장 위험한 조언 3가지](https://yonza.co.kr/youtube-channel/5): 지인 조언이 독이 되는 심리적 내막\n' +
+    '사용자가 유튜브 채널이나 재회특강 영상을 물어보면 위 채널 링크와 대표 영상들을 안내하세요.\n\n' +
+    '=== 연애의자격 서비스 가격표 (쇼핑몰 yonza.shop 판매가 기준) ===\n' +
+    '- 급상담: 100,000원 (원가 120,000원, 17% 할인) - 당일예약으로 솔루션을 듣는 1회 긴급 전화 상담\n' +
+    '- 재회 기본상담(기본상담패키지): 350,000원 (원가 420,000원, 17% 할인) - 전화상담 + 마음다잡기 피드백 5회\n' +
+    '- 재회 세미플랜: 970,000원 (원가 1,100,000원, 12% 할인) - 전화상담 + 마음다잡기 피드백 20회\n' +
+    '- 플랜 골드: 3,000,000원 (원가 4,000,000원) - 헤어진 연인을 다시 만나고 싶을 때의 프리미엄 상담\n' +
+    '- 싱글플랜: 1,500,000원 (원가 2,320,000원) - 좋은 상대를 찾고 행복하기 위한 상담\n' +
+    '사용자가 서비스 가격을 명시적으로 물어볼 때만 위 가격표를 정확히 알려주세요. 가격은 상담 종류(급상담 · 기본상담패키지 · 단회상담 · 후속상담 · 심화교육)와 담당 상담사, 프로그램에 따라 다르며, 자세한 내용은 상품 페이지(https://yonza.shop/page/index?tpl=main%2Fproductlist.html)를 안내하세요. 서비스 소개·전반 안내에서는 가격을 나열하지 마세요.\n\n' +
     '=== 연애의자격 상담사 목록 ===\n' +
-    '- 김연애 원장 (ID 448): 이별·재회 전문, 경력 12년, 평점 4.9\n' +
-    '- 이마음 상담사 (ID 512): 연애 고민 전문, 경력 8년, 평점 4.8\n' +
-    '- 박사랑 상담사 (ID 601): 권태기·재회 전문, 경력 10년, 평점 4.9\n' +
-    '- 최희망 상담사 (ID 602): 이별 극복·심리상담 전문, 경력 7년, 평점 4.7\n' +
-    '- 정용기 상담사 (ID 603): 연애 심리·갈등 해결 전문, 경력 9년, 평점 4.8\n' +
+    '- 이승진 (CLV 상담팀 총괄 팀장 · 대표상담사, ID 3): 해결불가급·고위험군·고난이도 특수 사례 전문, 자살예방·알콜중독·바람, 심리상담사 1급\n' +
+    '- 허아윤 (CLV 상담팀 팀장 · 대표상담사, ID 5): 쉽고 정확한 분석과 빠른 목표지향 상담, 파혼·이혼·헤붙 전문, 심리상담사 1급\n' +
+    '- 권요셉 (연애의자격 플랜상담사, ID 7): 교류분석·인문융합 기반 플랜상담, 인문융합치료학 박사 · 인하대 초빙교수, 불안한 사랑·이혼갈등·인문융합치료 전문\n' +
+    '- 장재원 (연애의자격 플랜상담사, ID 4): 16년 전문성의 박사 출신 상담사, 이성관계·연애심리상담·부부치료 전문, 아주대 상담심리학 박사 수료\n' +
+    '- 송기훈 (연애의자격 플랜상담사, ID 2): 내담자의 발전·성장을 도모하는 상담, 바람·환승·불안케어 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
+    '- 최희주 (연애의자격 플랜상담사, ID 6): 다정한 단호함으로 상담하는 재회 전문 상담사, 헤붙·불안·연애미숙 전문, 청소년상담사 3급 · 임상심리사 2급\n' +
     '사용자가 상담사 정보를 물어보면 반드시 위 상담사 목록을 정확히 알려주세요.\n' +
-    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [김연애 원장](https://yonza.co.kr/counseling-introduction), [이마음 상담사](https://yonza.co.kr/counseling-introduction) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요.\n\n' +
-    '가격은 프로그램 종류와 담당 상담사에 따라 다르며, 자세한 상담은 아래 기능으로 안내하세요:\n' +
-    '- 서비스 가격 조회\n' +
-    '- 상담사 정보 조회\n' +
-    '- 재회 가능성 진단 제출';
+    '상담사 이름을 안내할 때는 반드시 링크 형식으로 표시하세요: [이승진](https://yonza.co.kr/counseling-introduction/3), [허아윤](https://yonza.co.kr/counseling-introduction/5), [권요셉](https://yonza.co.kr/counseling-introduction/7), [장재원](https://yonza.co.kr/counseling-introduction/4), [송기훈](https://yonza.co.kr/counseling-introduction/2), [최희주](https://yonza.co.kr/counseling-introduction/6) 등. 각 상담사 이름을 클릭 가능한 링크로 만들어주세요. 상담사 전체 목록은 [상담사 소개 페이지](https://yonza.co.kr/counseling-introduction) 링크도 안내하세요.\n\n' +    '=== 재회 가능성 진단지 제출 방법 ===\n' +
+    '연애의자격은 무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리는 무료 진단지를 제공합니다. 진단을 통해 이별 원인 정밀 분석, 관계 회복을 위한 결정적 힌트, 안전한 재회 타이밍을 확인할 수 있으며, 14만+ 상담 사례 기반으로 재회 가능성과 우선 대응 방향을 안내합니다.\n' +
+    '진단지 제출 방법:\n' +
+    '1. 진단지 작성 링크(https://form.yonja.co.kr/?introounselor=448)로 이동합니다.\n' +
+    '2. 이름, 성별, 이별 기간, 이별 사유, 재회 목적 등 상황을 입력합니다.\n' +
+    '3. 제출 후 담당 상담사가 재회 가능성과 대응 방향을 안내합니다.\n' +
+    '개인정보는 비공개로 안전하게 보호됩니다. 사용자가 재회 가능성 진단을 원하거나 진단지 제출 방법을 물어보면 위 링크와 제출 방법, 그리고 "무료 연애 및 재회 진단으로 아픈 사연의 가능성을 찾아드리겠습니다"라는 취지의 안내를 함께 전달하세요.\n\n' +    '⚠️ 답변 마지막에 \"[서비스 소개 보기](...)\", \"상담사 정보 조회\", \"재회 가능성 진단 제출\", \"필요하신 기능이 있다면 편하게 말씀해 주시길 바랍니다.\" 같은 기능 목록이나 안내 문구를 추가하지 마세요. 사용자가 요청한 내용에 대해서만 간결하게 답변하세요.';
 
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' +
@@ -586,10 +665,32 @@ document.addEventListener('DOMContentLoaded', () => {
   addWelcomeMessage();
   initChatLinkHandling();
   refresh();
+
+  // 별도 창(window)으로 열린 경우에만 창 크기를 조정합니다.
+  // (팝업으로 열리면 chrome.windows가 없어 오류를 무시합니다.)
+  try {
+    chrome.windows.getCurrent((win) => {
+      if (win && win.type === 'popup') {
+        chrome.windows.update(win.id, { width: 480, height: 720 });
+      }
+    });
+  } catch {}
+
+  // 닫기 버튼으로 창/팝업을 명시적으로 닫습니다.
+  const closeBtn = $('#closeBtn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
 });
 
 // Enter로 전송 (Shift+Enter는 줄바꿈)
 $('#userQuestion').addEventListener('keydown', (e) => {
+  // 한국어 입력기(IME) 조합 중 Enter는 글자 확정이므로 제출하지 않습니다.
+  if (e.isComposing) {
+    return;
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     handleAsk();
