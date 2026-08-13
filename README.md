@@ -82,6 +82,145 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
    - 압축해제된 확장 프로그램 로드
    - `webmcp-extension/` 폴더 선택
 
+## 🚀 실제 운영 배포 가이드
+
+실제 운영(프로덕션)에 배포하려면 **웹사이트 파일 업로드**와 **Chrome 확장 프로그램 배포** 두 가지가 필요합니다. 아래에서 파일별로 자세히 설명합니다.
+
+### A. 웹사이트(HTML) 배포 — `yonja.html` 예제 기준
+
+운영 서버에 올려야 하는 파일은 **`yonja.html`과 `webmcp.js`** 두 개입니다. `webmcp.js`는 WebMCP 도구를 등록하는 공통 라이브러리로, HTML이 이 파일을 참조합니다.
+
+#### 1) 업로드할 파일 구성
+
+```
+웹서버 루트 (예: /var/www/html 또는 호스팅 public_html)
+├── yonja.html      # 연애의자격 메인 페이지 (WebMCPConfig 포함)
+└── webmcp.js       # WebMCP 공통 라이브러리 (반드시 같은 폴더에)
+```
+
+> ⚠️ `webmcp.js`는 `yonja.html`과 **같은 디렉터리**에 있어야 합니다. `yonja.html`이 `./webmcp.js`(상대경로)로 참조하기 때문입니다.
+
+#### 2) `yonja.html`에서 WebMCP를 참조하는 방법
+
+`yonja.html`은 아래 **3가지 요소**로 WebMCP를 활성화합니다. 운영 페이지에도 이 구조를 그대로 유지해야 합니다.
+
+**① `<head>`에 Origin Trial 토큰 등록 (실험 기능 활성화)**
+
+```html
+<head>
+  <!-- WebMCP 실험 기능 활성화용 Origin Trial 토큰 -->
+  <meta
+    http-equiv="origin-trial"
+    content="여기에_WebMCP_Origin_Trial_토큰_입력"
+  />
+  <!-- 내장 AI sampling 파라미터용 토큰 (선택) -->
+  <meta
+    http-equiv="origin-trial"
+    content="여기에_Prompt_API_토큰_입력"
+  />
+</head>
+```
+
+> ⚠️ 토큰은 **등록된 도메인**(예: `https://yonza.co.kr`)에서만 유효합니다. `localhost`에서는 동작하지 않습니다.
+
+**② `<head>`에 `WebMCPConfig` 정의 (반드시 `webmcp.js`보다 먼저)**
+
+```html
+<head>
+  <script>
+    window.WebMCPConfig = {
+      siteNs: 'yonja',          // 사이트 네임스페이스 (도구 이름 앞에 붙음)
+      lang: 'ko',
+      debug: true,
+      names: {
+        service:    { names: ['get_info'], description: '재회·연애 상담 서비스 정보 조회' },
+        consultant: { names: ['get_info'], description: '상담사 정보 조회' },
+        diagnosis:  { names: ['submit'],   description: '재회 가능성 진단 제출' },
+      },
+      items: [
+        {
+          group: 'service',
+          name: 'get_info',
+          title: '서비스 정보',
+          description: '연애의자격에서 제공하는 재회·연애 상담 서비스 정보를 조회합니다.',
+          getData: { /* 서비스 정보 데이터 */ },
+        },
+        // ... consultant, diagnosis 항목 추가
+      ],
+    };
+  </script>
+</head>
+```
+
+**③ `</body>` 직전에 `webmcp.js` 로드 (module 방식)**
+
+```html
+<body>
+  <!-- ... 페이지 내용 ... -->
+
+  <!-- WebMCPConfig가 정의된 뒤, 마지막에 webmcp.js를 로드 -->
+  <script type="module" src="./webmcp.js"></script>
+</body>
+```
+
+> 📌 **순서가 중요합니다.** `WebMCPConfig` → `webmcp.js` 순서로 로드해야 합니다. `webmcp.js`는 페이지가 준비되면 `navigator.modelContext.registerTool`로 `yonja.service.get_info` 같은 도구를 자동 등록합니다.
+
+#### 3) 운영 서버에 올리는 방법 (예시)
+
+**FTP/호스팅 파일 매니저 사용 시**
+- `yonja.html`과 `webmcp.js`를 웹 루트에 업로드
+- 브라우저에서 `https://도메인/yonja.html` 접속 확인
+
+**Nginx 서버 예시**
+```bash
+# 서버에 파일 복사
+scp yonja.html webmcp.js user@server:/var/www/html/
+
+# 접속 확인
+curl -I https://도메인/yonja.html
+```
+
+**GitHub Pages / Netlify / Vercel 사용 시**
+- 저장소 루트에 `yonja.html`, `webmcp.js`를 두고 배포
+- 정적 호스팅이므로 별도 서버 설정 불필요
+
+### B. Chrome 확장 프로그램 배포
+
+확장 프로그램은 `webmcp-extension/` 폴더를 zip으로 묶어 배포합니다.
+
+#### 1) 빌드 (zip 생성)
+
+```bash
+cd webmcp-extension
+python3 build_extension.py
+```
+
+`builds/` 폴더에 `yonja-ai-assistant-webmcp-v{버전}.zip`이 생성됩니다.
+
+#### 2) 배포 방법 선택
+
+**① Chrome 웹스토어 (공개 배포)**
+1. [Chrome Web Store 개발자 대시보드](https://chrome.google.com/webstore/devconsole) 접속
+2. "새 항목" → 위에서 만든 zip 업로드
+3. 스토어 등록 정보(설명, 스크린샷, 아이콘) 작성
+4. 심사 후 공개
+
+**② 사내/테스트 배포 (비공개)**
+1. `chrome://extensions` → 개발자 모드
+2. "압축해제된 확장 프로그램 로드" → `webmcp-extension/` 폴더 선택
+3. 또는 zip을 풀어서 로드
+
+> ⚠️ 확장 프로그램 배포 시 **`gemini-key.js`는 포함하지 마세요.** API 키가 노출됩니다. 배포본에는 키가 없는 상태로 두고, 사용자가 직접 키를 입력하도록 안내하세요.
+
+### C. 배포 전 체크리스트
+
+- [ ] `yonja.html`과 `webmcp.js`가 같은 폴더에 있는가?
+- [ ] `WebMCPConfig`가 `webmcp.js`보다 먼저 로드되는가?
+- [ ] Origin Trial 토큰이 운영 도메인에 맞게 등록되어 있는가?
+- [ ] `gemini-key.js`가 배포 zip에 포함되지 않았는가?
+- [ ] `build_extension.py`로 빌드한 zip이 정상 생성되었는가?
+- [ ] 운영 도메인에서 `https://도메인/yonja.html` 접속이 되는가?
+
 ## Gemini API 키 설정 (2순위 방식)
 
 Gemini API 키를 사용하면 모든 Chrome에서 진짜 AI 답변을 받을 수 있습니다.
