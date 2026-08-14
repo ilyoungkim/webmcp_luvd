@@ -1,0 +1,141 @@
+<!doctype html>
+<!--
+  ============================================================================
+  test.html — WebMCP 개발 가능성 테스트 페이지
+  ============================================================================
+  서버(프록시) 없이, 팝업 위젯만으로 WebMCP가 실제 동작하는지 검증합니다.
+
+  테스트 항목:
+    1. modelContext 지원 여부 (WebMCP API 존재?)
+    2. window.WebMCPConfig 기반 툴 등록 (webmcp.js → registerTool)
+    3. 내장 AI(window.LanguageModel)가 등록된 툴을 자동 호출하는지
+
+  실행 방법:
+    1) Chrome에서 "Web Model Context"(modelContext) 플래그를 Enabled로 설정
+    2) https:// 또는 localhost 로 이 파일을 열기
+    3) 화면의 "WebMCP 테스트" 패널에서 각 테스트 버튼 실행
+  ============================================================================
+-->
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>WebMCP 테스트 해리니스</title>
+    <link rel="stylesheet" href="./popup.css" />
+    <style>
+      /* 테스트 전용 (위젯 외 배경) */
+      body {
+        margin: 0;
+        padding: 24px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Noto Sans KR", sans-serif;
+        background: #f0f2f5;
+        color: #1f2937;
+      }
+      .docs {
+        max-width: 720px;
+        margin-bottom: 24px;
+        line-height: 1.6;
+        font-size: 14px;
+      }
+      .docs code {
+        background: #eef;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="docs">
+      <h1>🧪 WebMCP 개발 가능성 테스트</h1>
+      <p>
+        서버(프록시) 없이 <b>팝업 위젯만으로 WebMCP가 동작하는지</b> 확인하는 테스트 페이지입니다.
+        우측 하단의 💬 버튼으로 AI 비서 위젯을 열고, 위젯 하단의
+        <b>"🧪 WebMCP 테스트"</b> 패널에서 각 항목을 실행하세요.
+      </p>
+      <p>
+        전제: Chrome 최신 버전 + <code>chrome://flags</code>에서
+        <code>"Web Model Context"</code>(modelContext) Enabled. 내장 AI(
+        <code>window.LanguageModel</code>)가 있어야 3번 툴 호출 테스트가 완전합니다.
+      </p>
+    </div>
+
+    <!-- WebMCPConfig: webmcp.js 보다 먼저 정의해야 함 -->
+    <script>
+      window.WebMCPConfig = {
+        siteNs: 'yonja',
+        lang: 'ko',
+        debug: true,
+        names: {
+          service:    { names: ['get_info'], description: '재회·연애 상담 서비스 정보 조회' },
+          consultant: { names: ['get_info'], description: '상담사 정보 조회' },
+          diagnosis:  { names: ['submit'],   description: '재회 가능성 진단 제출' },
+        },
+        items: [
+          {
+            group: 'service',
+            name: 'get_info',
+            title: '서비스 정보',
+            description: '연애의자격 재회·연애 상담 서비스 정보를 조회합니다.',
+            getData: {
+              about: '연애의자격(yonja)은 이별 후 재회와 연애 고민을 전문 상담사와 함께 푸는 재회·연애 상담 서비스입니다.',
+              services: [
+                { id: 'urgent', name: '급상담', price: '100,000원' },
+                { id: 'basic',  name: '재회 기본상담', price: '350,000원' },
+              ],
+              priceNote: '상기 가격은 yonza.shop 판매가 기준입니다.',
+              introductionUrl: 'https://yonza.co.kr/introduction',
+            },
+          },
+          {
+            group: 'consultant',
+            name: 'get_info',
+            title: '상담사 정보',
+            description: '연애의자격 상담사 정보를 조회합니다.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                consultantId: { type: 'string', description: '상담사 식별자' },
+              },
+              required: [],
+            },
+            getData: function (args) {
+              return {
+                introductionUrl: 'https://yonza.co.kr/counseling-introduction',
+                consultants: [
+                  { id: '3', name: '이승진', role: 'CLV 상담팀 총괄 팀장', url: 'https://yonza.co.kr/counseling-introduction/3' },
+                  { id: '5', name: '허아윤', role: 'CLV 상담팀 팀장',       url: 'https://yonza.co.kr/counseling-introduction/5' },
+                ],
+              };
+            },
+          },
+          {
+            group: 'diagnosis',
+            name: 'submit',
+            title: '재회 가능성 진단',
+            description: '연애 상황을 입력받아 재회 가능성 진단지를 제출합니다.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                name:   { type: 'string', description: '신청자 이름' },
+                gender: { type: 'string', enum: ['male', 'female'], description: '성별' },
+                reason: { type: 'string', description: '이별 사유' },
+              },
+              required: ['name', 'gender', 'reason'],
+            },
+            getData: async function (args) {
+              return { received: true, submitted: args || {}, status: '진단 접수 완료' };
+            },
+          },
+        ],
+      };
+    </script>
+    <script src="../js/webmcp.js"></script>
+
+    <!-- Gemini API 키 (선택) — gemini-key.js를 먼저 로드해야 popup.js가 읽습니다 -->
+    <script src="../webmcp-extension/gemini-key.js"></script>
+
+    <!-- 팝업 위젯 (자동 마운트) -->
+    <script src="./popup.js"></script>
+  </body>
+</html>

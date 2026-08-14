@@ -11,3 +11,10 @@ wheels/
 
 # API keys (절대 커밋 금지)
 webmcp-extension/gemini-key.js
+
+# 개발 전용 원격 접속 정보 (절대 커밋 금지)
+.env.development
+.tmp_sudopw.txt
+
+# 백엔드 환경변수 (DB 비밀번호 등 — 절대 커밋 금지)
+webmcp/backend/.env

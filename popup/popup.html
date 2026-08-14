@@ -1,0 +1,87 @@
+<!doctype html>
+<!--
+  ============================================================================
+  popup.html — 연애의 자격 AI 비서 · 웹 위젯(인라인 팝업)
+  ============================================================================
+  Chrome 확장 전용 팝업(popup_agent_html.md 설계안)을
+  일반 웹페이지 위젯으로 전환한 버전입니다.
+
+  ✅ 설계안 반영 사항
+    1. Chrome 전용 API 제거
+       - chrome.windows / chrome.tabs / chrome.scripting / chrome.runtime 제거
+       - 팝업이 페이지와 같은 origin에서 실행 → window.WebMCPConfig 직접 접근
+       - 탭 탐색/스크립트 주입 기반 함수(getTargetTab 등) 삭제
+    2. Gemini API 키 서버 프록시(선택) → 키를 브라우저에 두지 않음
+    3. 사용자가 직접 키를 입력하면 localStorage에 보관(자기 책임)
+    4. 내장 AI(window.LanguageModel)는 그대로 지원 (Origin Trial 토큰 필요)
+
+  ▶ 위젯 배치 방법 (예: 페이지 body 끝에)
+    <div id="webmcp-widget"></div>
+    <script src="/popup/popup.js"></script>
+    <link rel="stylesheet" href="/popup/popup.css" />
+
+    * popup.js는 문서 끝에서 자동으로 위젯을 생성/마운트합니다.
+  ============================================================================
+-->
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>연애의 자격 AI 비서 위젯</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <!--
+      위젯이 이 페이지에 마운트되면 아래 구조가 #webmcp-widget 안에
+      동적으로 생성됩니다. (정적 HTML은 참고용 스캐폴드)
+    -->
+    <div id="webmcp-widget">
+      <button id="webmcpLauncher" class="wmcp-launcher" type="button" aria-label="AI 비서 열기" title="연애의 자격 AI 비서">
+        💬
+      </button>
+      <div id="webmcpPanel" class="wmcp-panel" hidden>
+        <header class="wmcp-header">
+          <h1>💘 연애의 자격 AI 비서</h1>
+          <span class="wmcp-status" id="webmcpStatus">연결 확인 중...</span>
+          <span class="wmcp-status" id="webmcpAiStatus" style="display:none">AI 확인 중...</span>
+          <button id="webmcpClose" class="wmcp-close" type="button" title="닫기">✕</button>
+        </header>
+
+        <div id="webmcpChat" class="wmcp-chat" aria-live="polite"></div>
+
+        <div class="wmcp-inputbar">
+          <div id="webmcpPills" class="wmcp-pills">
+            <button class="wmcp-pill" data-question="서비스 소개를 알려줘">서비스 소개</button>
+            <button class="wmcp-pill" data-question="서비스 가격 알려줘">서비스 가격</button>
+            <button class="wmcp-pill" data-question="상담사 정보 알려줘">상담사</button>
+            <button class="wmcp-pill" data-question="유튜브 채널 알려줘">유튜브 채널</button>
+            <button class="wmcp-pill" data-question="진단지 제출하는 방법을 알려줘">진단 제출</button>
+          </div>
+          <div class="wmcp-inputrow">
+            <textarea id="webmcpInput" placeholder="메시지를 입력하세요..." rows="1"></textarea>
+            <button id="webmcpAsk" class="wmcp-ask" type="button" title="보내기">➤</button>
+          </div>
+          <div class="wmcp-loader" id="webmcpLoader">💬 답변 생성 중...</div>
+        </div>
+
+        <details class="wmcp-accordion">
+          <summary>⚙️ 동작 방식</summary>
+          <div class="wmcp-acc-body">
+            <b>1순위</b> 서버 프록시 Gemini (키는 서버에서만 보관)
+            <br /><b>2순위</b> Chrome 내장 AI(<code>window.LanguageModel</code>) (Origin Trial 필요)
+            <br /><b>3순위</b> 사용자 입력 키 → <code>localStorage</code>
+            <br /><br />
+            <label>직접 Gemini API 키 입력(선택, 자기 책임):
+              <input id="webmcpApiKey" type="password" placeholder="API 키" autocomplete="off" />
+            </label>
+            <button id="webmcpSaveKey" class="wmcp-mini" type="button">저장</button>
+            <button id="webmcpClearKey" class="wmcp-mini" type="button">삭제</button>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Gemini API 키 (선택) — popup.js가 읽기 전에 로드 -->
+    <script src="../webmcp-extension/gemini-key.js"></script>
+    <script src="./popup.js"></script>
+  </body>
+</html>
