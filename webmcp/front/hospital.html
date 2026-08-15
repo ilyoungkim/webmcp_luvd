@@ -45,7 +45,46 @@
             <tr><th>툴</th><th>설명</th></tr>
             <tr><td><code>hospital.get_info</code></td><td>병원 기본정보 조회</td></tr>
             <tr><td><code>hospital.doctor.get_info</code></td><td>의사 정보 조회</td></tr>
+            <tr><td><code>hospital.special.get_info</code></td><td>특성화 치료센터 조회</td></tr>
+            <tr><td><code>hospital.treatment.get_info</code></td><td>부위별 질환 치료 조회</td></tr>
             <tr><td><code>hospital.appointment.get_current</code></td><td>현재 예약 정보 조회</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <details>
+        <summary>🏥 병원 정보</summary>
+        <div class="body">
+          <b>기본 정보</b>
+          <table>
+            <tr><th>항목</th><th>정보</th></tr>
+            <tr><td>병원명</td><td><code>생생병원</code> (척추·관절 특화)</td></tr>
+            <tr><td>소개</td><td>당신의 생생한 일상을 돕는 척추·관절 병원</td></tr>
+            <tr><td>규모</td><td>64병상, 1300평 / 5개과 13명 전문의 협진</td></tr>
+            <tr><td>주소</td><td>경기도 부천시 소사구 경인옛로 3, 5-8층(소사본동)</td></tr>
+            <tr><td>고객센터</td><td><code>1670-0711</code></td></tr>
+            <tr><td>대표</td><td>오종양, 박범용 (사업자번호 672-17-00332)</td></tr>
+            <tr><td>카카오톡</td><td><code>http://pf.kakao.com/_ZxdBgu/chat</code></td></tr>
+            <tr><td>네이버예약</td><td><code>https://m.booking.naver.com/booking/13/bizes/193210</code></td></tr>
+            <tr><td>온라인예약</td><td><code>https://www.saengsaenghospital.com/04_reservation_consultation/01experience_online_reserve.php</code></td></tr>
+          </table>
+          <b>병원 특징</b>
+          <table>
+            <tr><th>특징</th><th>내용</th></tr>
+            <tr><td>대표원장</td><td>가톨릭대 의학박사 출신, 10년 이상 경력 전문의만 진료</td></tr>
+            <tr><td>무균 수술실</td><td>양압시스템 24시간, 개원 이래 7년 감염률 제로</td></tr>
+            <tr><td>간호간병</td><td>통합서비스 최고 등급 A등급</td></tr>
+            <tr><td>첨단장비</td><td>MRI, CT, 초음파기 ONE-STOP 검사</td></tr>
+            <tr><td>수술</td><td>로봇 인공관절, 최소침습 척추내시경, 고관절 내시경</td></tr>
+          </table>
+          <b>전화 안내</b>
+          <table>
+            <tr><th>부서</th><th>전화</th></tr>
+            <tr><td>검진센터</td><td><code>032-230-0735</code></td></tr>
+            <tr><td>원무과</td><td><code>032-230-0703</code></td></tr>
+            <tr><td>재활치료(도수치료)</td><td><code>032-230-0752</code></td></tr>
+            <tr><td>7병동</td><td><code>032-230-0740</code></td></tr>
+            <tr><td>8병동</td><td><code>032-230-0754</code></td></tr>
           </table>
         </div>
       </details>
@@ -94,9 +133,9 @@
     </div>
 
     <!-- hospital.html 기준 WebMCPConfig + 시스템 프롬프트 (webmcp.js 보다 먼저 로드) -->
-    <script src="hospital-config.js"></script>
-    <script src="webmcp.js"></script>
-    <script src="widget.js"></script>
+    <script src="hospital-config.js?v=2"></script>
+    <script src="webmcp.js?v=2"></script>
+    <script src="widget.js?v=2"></script>
 
     <!-- WebMCP.config 실제 전체 코드 표시 -->
     <script>
