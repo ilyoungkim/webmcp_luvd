@@ -630,6 +630,67 @@ ssh user@server 'sudo cp /tmp/widget.css /tmp/webmcp-widget.js \
 - 지출 한도 설정만으로는 해결되지 않으며, **새 프로젝트 + 새 API 키 발급** 또는 크레딧 충전이 필요합니다.
 - 참고: `gemini-2.0-flash` / `gemini-2.5-flash`는 새 사용자에게 미제공되어 404가 날 수 있습니다.
 
+## Git 커밋 & 푸시 방법
+
+이 저장소(`webmcp_luvd`)의 변경사항을 GitHub에 반영하는 표준 절차입니다.
+
+### 기본 명령어 (커밋 + 푸시)
+
+```bash
+# 작업 디렉토리로 이동
+cd /Users/ilyoungkim/Projects/webMCP_luvd
+
+# 1) 변경 상태 확인
+git status
+
+# 2) 변경 내용 요약 확인
+git diff --stat
+
+# 3) 모든 변경사항 스테이징
+git add -A
+
+# 4) 커밋 (변경 내용 요약을 작성)
+git commit -m "변경 내용 요약"
+
+# 5) 원격 저장소(GitHub)에 푸시
+git push origin master
+```
+
+### 🚨 푸시가 실패할 때 (자격 증명 오류)
+
+VS Code의 터미널 샌드박스 환경에서는 **macOS 키체인(GitHub 자격 증명)에 접근하지 못해** 푸시가 실패할 수 있습니다.
+
+```
+Missing or invalid credentials.
+```
+
+이 경우 아래 방법으로 해결하세요.
+
+**방법 1 — VS Code 터미널에서 직접 실행 (권장)**
+
+가장 확실한 방법입니다. VS Code 터미널에서 직접 아래 명령어를 입력하세요. (키체인 접근이 허용된 일반 터미널이라 정상 동작합니다)
+
+```bash
+git push origin master
+```
+
+**방법 2 — Git 자격 증명 캐시 설정**
+
+푸시 시마다 인증 요구를 피하려면 자격 증명 헬퍼를 설정합니다.
+
+```bash
+# macOS 키체인에 자격 증명 저장 (최초 1회 설정)
+git config --global credential.helper osxkeychain
+```
+
+### Git 저장소 정보
+
+- **원격 저장소**: `https://github.com/ilyoungkim/webmcp_luvd.git`
+- **기본 브랜치**: `master`
+- **원격 확인 명령어**: `git remote -v`
+
+> 💡 커밋은 로컬에만 저장되고, **`git push`를 해야 GitHub에 반영**됩니다. 커밋 후 반드시 푸시 여부를 확인하세요.
+
 ## 버전 정보
 
 - Chrome manifest 버전: `0.1.1.3`
