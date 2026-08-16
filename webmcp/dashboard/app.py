@@ -1,0 +1,240 @@
+# ============================================================================
+# webmcp/dashboard/app.py — WebMCP 백엔드 DB 대시보드 (Streamlit)
+# ============================================================================
+# DB(webmcp)에 저장된 정보를 시각화합니다.
+#   - tenants  : 멀티테넌트(도메인별 Gemini 키/한도) 설정
+#   - request_logs : 요청 로깅 (비정상 접속 감지/분석)
+#
+# 실행 방법:
+#   cd webmcp/dashboard
+#   streamlit run app.py
+# ============================================================================
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+import db
+
+st.set_page_config(
+    page_title="WebMCP 대시보드",
+    page_icon="📊",
+    layout="wide",
+)
+
+# ── 사이드바: DB 접속 상태 ─────────────────────────────────────
+st.sidebar.title("📊 WebMCP 대시보드")
+st.sidebar.caption("DB(webmcp)에 저장된 정보를 확인합니다.")
+
+
+@st.cache_data(ttl=30)
+def load_tenants():
+    return db.query("SELECT * FROM tenants ORDER BY id")
+
+
+@st.cache_data(ttl=30)
+def load_logs(limit=5000):
+    return db.query(
+        "SELECT * FROM request_logs ORDER BY ts DESC LIMIT %s", (limit,)
+    )
+
+
+@st.cache_data(ttl=30)
+def load_summary():
+    return db.query_one(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(verdict = 'ok') AS ok_count,
+            SUM(verdict != 'ok') AS blocked_count,
+            COUNT(DISTINCT origin) AS origin_count,
+            COUNT(DISTINCT ip) AS ip_count,
+            MIN(ts) AS first_ts,
+            MAX(ts) AS last_ts
+        FROM request_logs
+        """
+    )
+
+
+# ── DB 연결 확인 ───────────────────────────────────────────────
+try:
+    summary = load_summary()
+    db_ok = True
+except Exception as e:
+    summary = None
+    db_ok = False
+    db_error = str(e)
+
+if not db_ok:
+    st.error("DB 연결에 실패했습니다.")
+    st.code(db_error, language="text")
+    st.info(
+        "`webmcp/dashboard/.env` 파일에 DB 접속 정보가 올바른지 확인하세요. "
+        "없다면 `.env.example`을 복사해 만드세요."
+    )
+    st.stop()
+
+# ── 상단 KPI 카드 ──────────────────────────────────────────────
+st.title("📊 WebMCP 백엔드 DB 대시보드")
+
+c1, c2, c3, c4, c5 = st.columns(5)
+c1.metric("총 요청", f"{summary['total']:,}")
+c2.metric("정상 요청", f"{summary['ok_count'] or 0:,}")
+c3.metric("차단 요청", f"{summary['blocked_count'] or 0:,}")
+c4.metric("도메인(테넌트)", f"{summary['origin_count'] or 0:,}")
+c5.metric("고유 IP", f"{summary['ip_count'] or 0:,}")
+
+st.caption(
+    f"기간: {summary['first_ts']} ~ {summary['last_ts']} "
+    f"(최근 30초 캐시, 새로고침 시 갱신)"
+)
+
+# ── 탭 구성 ────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📈 요청 분석", "🏢 테넌트 설정", "🚫 차단 로그", "📋 전체 로그"]
+)
+
+# ══════════════════════════════════════════════════════════════
+# TAB 1: 요청 분석
+# ══════════════════════════════════════════════════════════════
+with tab1:
+    logs = load_logs()
+    if not logs:
+        st.info("아직 요청 로그가 없습니다.")
+    else:
+        df = pd.DataFrame(logs)
+
+        # 시간대별 요청 수 (분 단위)
+        df["ts"] = pd.to_datetime(df["ts"])
+        df["minute"] = df["ts"].dt.floor("min")
+        hourly = (
+            df.groupby("minute")
+            .size()
+            .reset_index(name="count")
+            .sort_values("minute")
+        )
+
+        st.subheader("시간대별 요청 수")
+        fig = px.line(
+            hourly,
+            x="minute",
+            y="count",
+            markers=True,
+            title="요청 추이 (분 단위)",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # verdict 별 분포
+        st.subheader("요청 상태(verdict) 분포")
+        verdict_counts = df["verdict"].fillna("ok").value_counts().reset_index()
+        verdict_counts.columns = ["verdict", "count"]
+        fig2 = px.pie(
+            verdict_counts,
+            names="verdict",
+            values="count",
+            title="verdict 분포",
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+        # 도메인별 요청 수
+        st.subheader("도메인(origin)별 요청 수")
+        origin_counts = (
+            df["origin"].fillna("(없음)").value_counts().reset_index()
+        )
+        origin_counts.columns = ["origin", "count"]
+        fig3 = px.bar(
+            origin_counts,
+            x="origin",
+            y="count",
+            title="도메인별 요청 수",
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
+        # IP별 요청 수 (상위 20)
+        st.subheader("IP별 요청 수 (상위 20)")
+        ip_counts = (
+            df["ip"].fillna("(없음)").value_counts().head(20).reset_index()
+        )
+        ip_counts.columns = ["ip", "count"]
+        fig4 = px.bar(
+            ip_counts,
+            x="ip",
+            y="count",
+            orientation="h",
+            title="IP별 요청 수",
+        )
+        st.plotly_chart(fig4, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════
+# TAB 2: 테넌트 설정
+# ══════════════════════════════════════════════════════════════
+with tab2:
+    tenants = load_tenants()
+    if not tenants:
+        st.info("등록된 테넌트가 없습니다.")
+    else:
+        st.subheader("테넌트(도메인별 설정) 목록")
+        tdf = pd.DataFrame(tenants)
+        # Gemini 키는 마스킹해서 표시
+        if "gemini_key" in tdf.columns:
+            tdf["gemini_key"] = tdf["gemini_key"].apply(
+                lambda k: (k[:6] + "…" + k[-4:]) if isinstance(k, str) and len(k) > 12 else "***"
+            )
+        st.dataframe(tdf, use_container_width=True)
+
+        st.subheader("테넌트별 요청 현황")
+        logs2 = load_logs()
+        if logs2:
+            df2 = pd.DataFrame(logs2)
+            df2["origin"] = df2["origin"].fillna("(없음)")
+            per_tenant = (
+                df2.groupby("origin")
+                .agg(
+                    total=("id", "count"),
+                    ok=("verdict", lambda s: (s == "ok").sum()),
+                    blocked=("verdict", lambda s: (s != "ok").sum()),
+                )
+                .reset_index()
+            )
+            st.dataframe(per_tenant, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════
+# TAB 3: 차단 로그
+# ══════════════════════════════════════════════════════════════
+with tab3:
+    blocked = db.query(
+        "SELECT * FROM request_logs WHERE verdict != 'ok' ORDER BY ts DESC LIMIT 500"
+    )
+    if not blocked:
+        st.info("차단된 요청이 없습니다. 🎉")
+    else:
+        bdf = pd.DataFrame(blocked)
+        st.subheader("차단된 요청 (최근 500건)")
+        st.dataframe(bdf, use_container_width=True)
+
+        st.subheader("차단 사유(reason) 분포")
+        reason_counts = (
+            bdf["reason"].fillna("(없음)").value_counts().reset_index()
+        )
+        reason_counts.columns = ["reason", "count"]
+        fig5 = px.bar(
+            reason_counts,
+            x="reason",
+            y="count",
+            title="차단 사유 분포",
+        )
+        st.plotly_chart(fig5, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════
+# TAB 4: 전체 로그
+# ══════════════════════════════════════════════════════════════
+with tab4:
+    all_logs = load_logs(limit=1000)
+    if not all_logs:
+        st.info("로그가 없습니다.")
+    else:
+        adf = pd.DataFrame(all_logs)
+        st.subheader("전체 요청 로그 (최근 1000건)")
+        st.dataframe(adf, use_container_width=True)
+
+st.sidebar.markdown("---")
+st.sidebar.caption("WebMCP 백엔드 DB 대시보드 · Streamlit")

@@ -66,6 +66,12 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
   - `init.sql` — DB 스키마 (tenants, request_logs)
   - `webmcp_standalone.conf` — nginx(8081) 설정
   - `webmcp-backend.service` — systemd 서비스
+- `webmcp/dashboard/`: WebMCP 백엔드 DB 대시보드 (Streamlit)
+  - `app.py` — 대시보드 메인 (요청 분석, 테넌트 설정, 차단 로그)
+  - `db.py` — DB 접속 및 쿼리 헬퍼
+  - `run.sh` — 실행 스크립트
+  - `requirements.txt` — 의존성
+  - `.env.example` — DB 접속 설정 예시
 - `webmcp-extension/`: Chrome 확장 프로그램
   - `manifest.json`
   - `popup.html`
@@ -613,6 +619,43 @@ ssh user@server 'sudo cp /tmp/widget.css /tmp/webmcp-widget.js \
 ```
 
 > 💡 브라우저 캐시 때문에 변경사항이 안 보이면, HTML의 `<script src="...?v=N">`의 `v` 값을 올려 새로고침하세요.
+
+## 📊 WebMCP 백엔드 DB 대시보드 (Streamlit)
+
+백엔드(`webmcp/backend/app.py`)가 DB에 저장하는 정보를 시각화하는 Streamlit 대시보드입니다.
+
+- **`tenants`** : 멀티테넌트(도메인별 Gemini 키/한도) 설정
+- **`request_logs`** : 요청 로깅 (비정상 접속 감지/분석)
+
+### 실행 방법
+
+```bash
+cd webmcp/dashboard
+
+# 1) 의존성 설치
+pip install -r requirements.txt
+
+# 2) DB 접속 설정 (.env.example 복사 후 수정)
+cp .env.example .env
+
+# 3) 실행 (기본 포트 8501)
+./run.sh
+# 또는
+streamlit run app.py
+```
+
+브라우저에서 `http://localhost:8501` 접속합니다.
+
+### 대시보드 탭
+
+| 탭 | 내용 |
+|----|------|
+| **📈 요청 분석** | 시간대별 요청 수, verdict 분포, 도메인별/IP별 요청 수 |
+| **🏢 테넌트 설정** | 테넌트(도메인별 Gemini 키/한도) 목록, 테넌트별 요청 현황 |
+| **🚫 차단 로그** | 차단된 요청(401/403/429) 목록, 차단 사유 분포 |
+| **📋 전체 로그** | 최근 요청 로그 전체 |
+
+> ⚠️ Gemini API 키는 대시보드에서 **마스킹**되어 표시됩니다. 대시보드는 내부 관리용이므로 외부에 노출하지 마세요.
 
 ## Chrome 내장 AI 활성화 (1순위 방식)
 
