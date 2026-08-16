@@ -172,9 +172,101 @@ with tab2:
     if not tenants:
         st.info("등록된 테넌트가 없습니다.")
     else:
-        st.subheader("테넌트(도메인별 설정) 목록")
+        st.subheader("테넌트(도메인별) 설정")
+        st.caption(
+            "도메인을 선택해 하나의 화면에서 **사용 여부(활성/비활성) · 분당 호출 한도 · 등급(tier) · Gemini 모델**을 "
+            "모두 설정할 수 있습니다."
+        )
+
+        # ── 설정할 테넌트 선택 ─────────────────────────────────
+        tenant_options = {
+            f"{t['origin']} (id:{t['id']})": t for t in tenants
+        }
+        selected_label = st.selectbox(
+            "설정할 테넌트 선택",
+            options=list(tenant_options.keys()),
+            key="tenant_select",
+        )
+        sel = tenant_options[selected_label]
+
+        st.markdown(
+            "🟢 활성" if sel["enabled"] else "🔴 비활성",
+            help="현재 상태",
+        )
+
+        # ── 통합 설정 폼 (사용 여부 + 한도 + 등급 + 모델) ───────
+        with st.form(key=f"tenant_form_{sel['id']}"):
+            col_a, col_b = st.columns([1, 4])
+            with col_a:
+                new_enabled = st.toggle(
+                    "도메인 사용",
+                    value=bool(sel["enabled"]),
+                    help="비활성 시 해당 도메인 요청이 403 차단됩니다.",
+                    key=f"enabled_{sel['id']}",
+                )
+            with col_b:
+                st.markdown(f"**{sel['origin']}**  \n`site_ns: {sel['site_ns']}`")
+
+            col_c, col_d, col_e = st.columns(3)
+            with col_c:
+                new_rate = st.number_input(
+                    "분당 호출 한도 (rate_limit)",
+                    min_value=1,
+                    max_value=10000,
+                    value=int(sel["rate_limit"]),
+                    step=1,
+                    key=f"rate_{sel['id']}",
+                )
+            with col_d:
+                new_tier = st.selectbox(
+                    "등급 (tier)",
+                    options=["dev", "prod", "test", "beta"],
+                    index=["dev", "prod", "test", "beta"].index(sel["tier"])
+                    if sel["tier"] in ["dev", "prod", "test", "beta"]
+                    else 0,
+                    key=f"tier_{sel['id']}",
+                )
+            with col_e:
+                new_model = st.text_input(
+                    "Gemini 모델 (model_name)",
+                    value=sel["model_name"],
+                    key=f"model_{sel['id']}",
+                )
+
+            submitted = st.form_submit_button("💾 설정 저장", type="primary")
+
+        # ── 저장 처리 (변경된 항목만 DB 반영) ───────────────────
+        if submitted:
+            updated = False
+
+            if new_enabled != bool(sel["enabled"]):
+                db.set_tenant_enabled(sel["id"], new_enabled)
+                updated = True
+
+            if int(new_rate) != int(sel["rate_limit"]):
+                db.set_tenant_rate_limit(sel["id"], int(new_rate))
+                updated = True
+
+            if new_tier != sel["tier"]:
+                db.set_tenant_tier(sel["id"], new_tier)
+                updated = True
+
+            if (new_model or "").strip() != sel["model_name"]:
+                db.set_tenant_model(sel["id"], new_model.strip())
+                updated = True
+
+            if updated:
+                st.toast(f"{sel['origin']} 설정이 저장되었습니다.")
+                load_tenants.clear()  # 캐시 무효화
+                st.rerun()
+            else:
+                st.info("변경된 설정이 없습니다.")
+
+        st.divider()
+
+        # ── 테넌트 목록 테이블 (키 마스킹) ──────────────────────
+        st.subheader("전체 테넌트 목록")
         tdf = pd.DataFrame(tenants)
-        # Gemini 키는 마스킹해서 표시
         if "gemini_key" in tdf.columns:
             tdf["gemini_key"] = tdf["gemini_key"].apply(
                 lambda k: (k[:6] + "…" + k[-4:]) if isinstance(k, str) and len(k) > 12 else "***"

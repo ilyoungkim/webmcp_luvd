@@ -46,3 +46,59 @@ def query_one(sql, params=None):
     """SELECT 쿼리를 실행하고 단일 행을 반환합니다. (없으면 None)"""
     rows = query(sql, params)
     return rows[0] if rows else None
+
+
+def set_tenant_enabled(tenant_id, enabled):
+    """테넌트의 enabled(활성/비활성) 상태를 변경합니다."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET enabled=%s WHERE id=%s",
+                (1 if enabled else 0, tenant_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def set_tenant_rate_limit(tenant_id, rate_limit):
+    """테넌트의 rate_limit(분당 호출 한도)을 변경합니다."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET rate_limit=%s WHERE id=%s",
+                (int(rate_limit), tenant_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def set_tenant_tier(tenant_id, tier):
+    """테넌트의 tier(등급)를 변경합니다."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET tier=%s WHERE id=%s",
+                (tier, tenant_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def set_tenant_model(tenant_id, model_name):
+    """테넌트의 model_name(Gemini 모델)을 변경합니다."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET model_name=%s WHERE id=%s",
+                (model_name, tenant_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()
