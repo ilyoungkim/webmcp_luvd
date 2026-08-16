@@ -264,11 +264,36 @@ with tab4:
                     key=f"tier_{sel['id']}",
                 )
             with col_e:
-                new_model = st.text_input(
+                # Gemini 모델 선택 (사전 정의된 모델 목록 + 사용자 지정)
+                GEMINI_MODELS = [
+                    "gemini-3.1-flash-lite",   # Gemini 3.1 Flash-Lite
+                    "gemini-3.5-flash-lite",   # Gemini 3.5 Flash-Lite
+                    "gemini-2.0-flash",        # Gemini 2.0 Flash
+                    "gemini-2.5-flash",        # Gemini 2.5 Flash
+                    "gemini-embedding-001",    # Gemini Embedding
+                    "text-embedding-004",      # Gemini Embedding (구형)
+                ]
+                # 현재 저장된 모델이 목록에 없으면 "사용자 지정" 옵션으로 표시
+                model_options = GEMINI_MODELS + ["✏️ 사용자 지정"]
+                current_model = sel["model_name"]
+                default_index = (
+                    GEMINI_MODELS.index(current_model)
+                    if current_model in GEMINI_MODELS
+                    else len(GEMINI_MODELS)  # "사용자 지정" 인덱스
+                )
+                new_model = st.selectbox(
                     "Gemini 모델 (model_name)",
-                    value=sel["model_name"],
+                    options=model_options,
+                    index=default_index,
                     key=f"model_{sel['id']}",
                 )
+                # "사용자 지정" 선택 시 직접 입력 가능
+                if new_model == "✏️ 사용자 지정":
+                    new_model = st.text_input(
+                        "사용자 지정 모델명",
+                        value=current_model,
+                        key=f"model_custom_{sel['id']}",
+                    )
 
             submitted = st.form_submit_button("💾 설정 저장", type="primary")
 
