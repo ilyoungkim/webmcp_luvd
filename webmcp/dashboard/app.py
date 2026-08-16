@@ -121,7 +121,7 @@ with tab1:
             markers=True,
             title="요청 추이 (분 단위)",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
         # verdict 별 분포
         st.subheader("요청 상태(verdict) 분포")
@@ -133,7 +133,7 @@ with tab1:
             values="count",
             title="verdict 분포",
         )
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
         # 도메인별 요청 수
         st.subheader("도메인(origin)별 요청 수")
@@ -147,7 +147,7 @@ with tab1:
             y="count",
             title="도메인별 요청 수",
         )
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width='stretch')
 
         # IP별 요청 수 (상위 20)
         st.subheader("IP별 요청 수 (상위 20)")
@@ -162,7 +162,7 @@ with tab1:
             orientation="h",
             title="IP별 요청 수",
         )
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, width='stretch')
 
 # ══════════════════════════════════════════════════════════════
 # TAB 2: 테넌트 설정
@@ -179,7 +179,7 @@ with tab2:
             tdf["gemini_key"] = tdf["gemini_key"].apply(
                 lambda k: (k[:6] + "…" + k[-4:]) if isinstance(k, str) and len(k) > 12 else "***"
             )
-        st.dataframe(tdf, use_container_width=True)
+        st.dataframe(tdf, width='stretch')
 
         st.subheader("테넌트별 요청 현황")
         logs2 = load_logs()
@@ -195,7 +195,7 @@ with tab2:
                 )
                 .reset_index()
             )
-            st.dataframe(per_tenant, use_container_width=True)
+            st.dataframe(per_tenant, width='stretch')
 
 # ══════════════════════════════════════════════════════════════
 # TAB 3: 차단 로그
@@ -209,7 +209,7 @@ with tab3:
     else:
         bdf = pd.DataFrame(blocked)
         st.subheader("차단된 요청 (최근 500건)")
-        st.dataframe(bdf, use_container_width=True)
+        st.dataframe(bdf, width='stretch')
 
         st.subheader("차단 사유(reason) 분포")
         reason_counts = (
@@ -222,7 +222,7 @@ with tab3:
             y="count",
             title="차단 사유 분포",
         )
-        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig5, width='stretch')
 
 # ══════════════════════════════════════════════════════════════
 # TAB 4: 전체 로그
@@ -234,7 +234,7 @@ with tab4:
     else:
         adf = pd.DataFrame(all_logs)
         st.subheader("전체 요청 로그 (최근 1000건)")
-        st.dataframe(adf, use_container_width=True)
+        st.dataframe(adf, width='stretch')
 
 st.sidebar.markdown("---")
 st.sidebar.caption("WebMCP 백엔드 DB 대시보드 · Streamlit")
