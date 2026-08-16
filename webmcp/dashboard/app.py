@@ -175,6 +175,42 @@ with tab4:
     else:
         st.subheader("테넌트(도메인별) 설정")
         st.caption(
+            "도메인별 설정은 아래 **목록 · 요청 현황** 뒤에 위치합니다. "
+            "도메인을 선택해 **사용 여부(활성/비활성) · 분당 호출 한도 · 등급(tier) · Gemini 모델**을 "
+            "모두 설정할 수 있습니다."
+        )
+
+        # ── 테넌트 목록 테이블 (키 마스킹) ──────────────────────
+        st.subheader("전체 테넌트 목록")
+        tdf = pd.DataFrame(tenants)
+        if "gemini_key" in tdf.columns:
+            tdf["gemini_key"] = tdf["gemini_key"].apply(
+                lambda k: (k[:6] + "…" + k[-4:]) if isinstance(k, str) and len(k) > 12 else "***"
+            )
+        st.dataframe(tdf, width='stretch')
+
+        # ── 테넌트별 요청 현황 ──────────────────────────────────
+        st.subheader("테넌트별 요청 현황")
+        logs2 = load_logs()
+        if logs2:
+            df2 = pd.DataFrame(logs2)
+            df2["origin"] = df2["origin"].fillna("(없음)")
+            per_tenant = (
+                df2.groupby("origin")
+                .agg(
+                    total=("id", "count"),
+                    ok=("verdict", lambda s: (s == "ok").sum()),
+                    blocked=("verdict", lambda s: (s != "ok").sum()),
+                )
+                .reset_index()
+            )
+            st.dataframe(per_tenant, width='stretch')
+
+        st.divider()
+
+        # ── 도메인별 설정 (목록 · 요청 현황 뒤에 배치) ──────────
+        st.subheader("도메인별 설정")
+        st.caption(
             "도메인을 선택해 하나의 화면에서 **사용 여부(활성/비활성) · 분당 호출 한도 · 등급(tier) · Gemini 모델**을 "
             "모두 설정할 수 있습니다."
         )
@@ -262,33 +298,6 @@ with tab4:
                 st.rerun()
             else:
                 st.info("변경된 설정이 없습니다.")
-
-        st.divider()
-
-        # ── 테넌트 목록 테이블 (키 마스킹) ──────────────────────
-        st.subheader("전체 테넌트 목록")
-        tdf = pd.DataFrame(tenants)
-        if "gemini_key" in tdf.columns:
-            tdf["gemini_key"] = tdf["gemini_key"].apply(
-                lambda k: (k[:6] + "…" + k[-4:]) if isinstance(k, str) and len(k) > 12 else "***"
-            )
-        st.dataframe(tdf, width='stretch')
-
-        st.subheader("테넌트별 요청 현황")
-        logs2 = load_logs()
-        if logs2:
-            df2 = pd.DataFrame(logs2)
-            df2["origin"] = df2["origin"].fillna("(없음)")
-            per_tenant = (
-                df2.groupby("origin")
-                .agg(
-                    total=("id", "count"),
-                    ok=("verdict", lambda s: (s == "ok").sum()),
-                    blocked=("verdict", lambda s: (s != "ok").sum()),
-                )
-                .reset_index()
-            )
-            st.dataframe(per_tenant, width='stretch')
 
 # ══════════════════════════════════════════════════════════════
 # TAB 2: 차단 로그
