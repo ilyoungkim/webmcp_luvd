@@ -2,8 +2,13 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
+    <!-- ⚠️ viewport meta 태그 (필수): 없으면 모바일이 데스크톱 폭(약 980px) 기준으로
+         렌더링되어 위젯이 작게 보입니다. 위젯이 화면을 꽉 채우도록 합니다. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>WebMCP 프록시 연동 데모</title>
-    <link rel="stylesheet" href="widget.css" />
+    <!-- 💡 widget.css?v=3: 배포 후 브라우저 캐시 문제를 피하려고 버전 쿼리스트링을 붙입니다.
+         CSS를 수정하고 배포했는데 새 스타일이 안 보이면 ?v= 값을 올리세요. -->
+    <link rel="stylesheet" href="widget.css?v=3" />
     <style>
       body { margin: 0; padding: 40px; font-family: -apple-system, "Noto Sans KR", sans-serif; background: #f0f2f5; color: #1f2937; }
       .docs { max-width: 720px; line-height: 1.7; }

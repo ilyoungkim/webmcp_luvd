@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     origin        VARCHAR(255) NOT NULL UNIQUE,      -- 예: https://yonza.co.kr
     site_ns       VARCHAR(64)  NOT NULL DEFAULT 'site', -- WebMCPConfig.siteNs
     gemini_key    TEXT         NOT NULL,             -- Gemini API 키 (DB에만 보관)
+    password      VARCHAR(255) NULL,                 -- 개인별 대시보드 로그인 비밀번호 (선택)
     model_name    VARCHAR(128) NOT NULL DEFAULT 'gemini-2.0-flash',
     rate_limit    INT UNSIGNED NOT NULL DEFAULT 20,  -- 분당 도메인 호출 한도
     tier          VARCHAR(32)  NOT NULL DEFAULT 'dev',

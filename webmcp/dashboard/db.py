@@ -102,3 +102,17 @@ def set_tenant_model(tenant_id, model_name):
             return cur.rowcount > 0
     finally:
         conn.close()
+
+
+def set_tenant_password(tenant_id, password_hash):
+    """테넌트의 로그인 비밀번호(SHA-256 해시)를 설정/변경합니다."""
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tenants SET password=%s WHERE id=%s",
+                (password_hash, tenant_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        conn.close()

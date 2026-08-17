@@ -9,6 +9,8 @@
 #   cd webmcp/dashboard
 #   streamlit run app.py
 # ============================================================================
+import hashlib
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -173,6 +175,14 @@ with tab4:
     if not tenants:
         st.info("등록된 테넌트가 없습니다.")
     else:
+        # 저장 결과 메시지 표시 (rerun 후에도 유지)
+        if "save_msg" in st.session_state:
+            msg = st.session_state.pop("save_msg")
+            if msg.startswith("✅"):
+                st.success(msg)
+            else:
+                st.info(msg)
+
         st.subheader("테넌트(도메인별) 설정")
         st.caption(
             "도메인별 설정은 아래 **목록 · 요청 현황** 뒤에 위치합니다. "
@@ -265,13 +275,22 @@ with tab4:
                 )
             with col_e:
                 # Gemini 모델 선택 (사전 정의된 모델 목록 + 사용자 지정)
+                # ── 모델별 특징 (README.md "사용 가능한 Gemini 모델별 특징" 참고) ──
+                #   gemini-3.1-flash-lite  : 저비용·저지연 경량 채팅 모델
+                #   gemini-3.5-flash-lite  : 최신 Flash-Lite, 속도·품질 균형 (추천)
+                #   gemini-2.0-flash       : 범용 멀티모달 (이미지·텍스트, 도구 호출)
+                #   gemini-2.5-flash       : 추론 능력 강화된 범용 모델
+                #   gemini-embedding-2     : 최신 Gemini Embedding (이미지·문서 포함, 3072차원)
+                #   gemini-embedding-001   : Gemini Embedding (텍스트 전용, 3072차원)
+                #   text-embedding-004     : 구형 임베딩 (2026-01 중순 지원 중단, 마이그레이션 권장)
                 GEMINI_MODELS = [
                     "gemini-3.1-flash-lite",   # Gemini 3.1 Flash-Lite
                     "gemini-3.5-flash-lite",   # Gemini 3.5 Flash-Lite
                     "gemini-2.0-flash",        # Gemini 2.0 Flash
                     "gemini-2.5-flash",        # Gemini 2.5 Flash
-                    "gemini-embedding-001",    # Gemini Embedding
-                    "text-embedding-004",      # Gemini Embedding (구형)
+                    "gemini-embedding-2",      # Gemini Embedding 2 (이미지·문서)
+                    "gemini-embedding-001",    # Gemini Embedding (텍스트 전용)
+                    "text-embedding-004",      # 구형 임베딩 (지원 중단 예정)
                 ]
                 # 현재 저장된 모델이 목록에 없으면 "사용자 지정" 옵션으로 표시
                 model_options = GEMINI_MODELS + ["✏️ 사용자 지정"]
@@ -295,6 +314,29 @@ with tab4:
                         key=f"model_custom_{sel['id']}",
                     )
 
+            # ── 개인 대시보드 로그인 비밀번호 설정 ──────────────
+            st.divider()
+            st.markdown("**🔐 개인 대시보드 로그인 비밀번호**")
+            st.caption(
+                "이 비밀번호로 `site.py` 개인 대시보드에 로그인할 수 있습니다. "
+                "비워두면 기존 비밀번호를 유지합니다."
+            )
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                new_password = st.text_input(
+                    "새 비밀번호",
+                    type="password",
+                    placeholder="설정할 비밀번호",
+                    key=f"pw_{sel['id']}",
+                )
+            with col_p2:
+                new_password2 = st.text_input(
+                    "새 비밀번호 확인",
+                    type="password",
+                    placeholder="비밀번호 재입력",
+                    key=f"pw2_{sel['id']}",
+                )
+
             submitted = st.form_submit_button("💾 설정 저장", type="primary")
 
         # ── 저장 처리 (변경된 항목만 DB 반영) ───────────────────
@@ -317,12 +359,29 @@ with tab4:
                 db.set_tenant_model(sel["id"], new_model.strip())
                 updated = True
 
+            # 비밀번호 변경 처리 (둘 다 입력했을 때만)
+            if new_password or new_password2:
+                if new_password != new_password2:
+                    st.session_state["save_msg"] = "❌ 비밀번호가 일치하지 않습니다."
+                    st.rerun()
+                elif len(new_password) < 4:
+                    st.session_state["save_msg"] = "❌ 비밀번호는 4자 이상이어야 합니다."
+                    st.rerun()
+                else:
+                    pw_hash = hashlib.sha256(new_password.encode("utf-8")).hexdigest()
+                    db.set_tenant_password(sel["id"], pw_hash)
+                    updated = True
+
             if updated:
-                st.toast(f"{sel['origin']} 설정이 저장되었습니다.")
+                # rerun 후에도 메시지가 유지되도록 session_state에 저장
+                st.session_state["save_msg"] = (
+                    f"✅ {sel['origin']} 설정이 저장되었습니다."
+                )
                 load_tenants.clear()  # 캐시 무효화
                 st.rerun()
             else:
-                st.info("변경된 설정이 없습니다.")
+                st.session_state["save_msg"] = "ℹ️ 변경된 설정이 없습니다."
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════
 # TAB 2: 차단 로그

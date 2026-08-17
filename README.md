@@ -56,11 +56,11 @@ WebMCP 및 내장 AI 실험 기능을 활성화하기 위해 아래 토큰을 �
   - `webmcp.js` — 프록시 통신 라이브러리
   - `widget.js` — 위젯 로더 (webmcp-widget.js 동적 로드)
   - `webmcp-widget.js` — 공통 위젯 UI 라이브러리
-  - `widget.css` — 위젯 스타일 (CSS 변수 기반 테마)
+  - `widget.css` — 위젯 스타일 (CSS 변수 기반 테마 + 모바일 반응형)
   - `hospital-config.js` — 생생병원 사이트 설정
   - `yonja-config.js` — 연애의자격 사이트 설정
-  - `hospital.html` — 생생병원 데모 페이지
-  - `index.html` — 위젯 인덱스 페이지
+  - `hospital.html` — 생생병원 데모 페이지 (viewport meta 포함)
+  - `index.html` — 위젯 인덱스 페이지 (viewport meta 포함)
 - `webmcp/backend/`: WebMCP 백엔드 프록시 (FastAPI + MariaDB)
   - `app.py` — 멀티테넌트 Gemini 프록시
   - `init.sql` — DB 스키마 (tenants, request_logs)
@@ -565,6 +565,20 @@ window.WebMCPConfig = {
 | **로더** | 답변 생성 중 표시 | 자동 |
 | **동작 방식 아코디언** | 위젯 동작 원리 설명 | `webmcp-widget.js` `widgetTemplate()` |
 | **색상 테마** | 고객 사이트별 색상표 | `WebMCPConfig.theme` |
+| **모바일 반응형** | 화면이 꽉 차도록 위젯 크기 자동 조정 | `widget.css` `@media` |
+
+#### 모바일 반응형 (화면 꽉 차게)
+
+- **768px 이하** (스마트폰·태블릿): AI 비서 패널이 화면 전체(`100vw` × `100dvh`)를 채웁니다. `100dvh`를 사용해 모바일 브라우저 주소창 높이까지 정확히 차며, 테두리(모서리)도 없습니다.
+- **769px 이상** (데스크톱): 기존 플로팅 패널(380×600) 유지.
+
+> ⚠️ **중요**: 모바일에서 위젯이 화면을 꽉 채우려면 페이지 `<head>`에 **viewport meta 태그**가 필수입니다. 없으면 모바일 브라우저가 데스크톱 폭(약 980px)으로 렌더링해 위젯이 작게 보입니다.
+>
+> ```html
+> <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+> ```
+>
+> 💡 위젯 CSS를 수정한 뒤 브라우저 캐시가 문제가 되면, `widget.css` 링크에 버전 쿼리스트링을 붙이세요. 예: `widget.css?v=2`
 
 ### 5. 색상 테마 변경 (고객 사이트별)
 
@@ -733,6 +747,18 @@ git config --global credential.helper osxkeychain
 - **원격 확인 명령어**: `git remote -v`
 
 > 💡 커밋은 로컬에만 저장되고, **`git push`를 해야 GitHub에 반영**됩니다. 커밋 후 반드시 푸시 여부를 확인하세요.
+
+## 최근 변경 사항
+
+### v0.2.0 — 모바일 반응형 개선 + 대시보드 UX 개선
+
+**🖥️ AI 비서 웹 위젯 — 모바일 반응형 (화면 꽉 차게)**
+- `widget.css`: 모바일(768px 이하)에서 위젯 패널이 화면 전체(`100vw` × `100dvh`)를 차지하도록 개선. `100dvh`로 모바일 주소창 높이까지 정확히 채움. 데스크톱(769px 이상)은 기존 플로팅 패널(380×600) 유지.
+- `hospital.html` / `index.html`: `<head>`에 **viewport meta 태그** 추가 — 이 태그가 없으면 모바일이 데스크톱 폭(약 980px) 기준으로 렌더링되어 위젯이 작게 보였음.
+- `hospital.html` / `index.html`: `widget.css` 링크에 버전 쿼리스트링(`?v=2`) 추가 — 배포 후 브라우저 캐시로 새 CSS가 안 보이는 문제 해결.
+
+**📊 Streamlit 대시보드 — 설정 저장 확인 UX 개선**
+- `app.py` (테넌트 설정 탭): 설정 저장 후 `st.session_state["save_msg"]`에 메시지를 저장해 **rerun 후에도 저장 성공/실패 메시지가 유지**되도록 개선. (기존 `st.toast`/`st.info`는 rerun 직후 사라짐)
 
 ## 버전 정보
 

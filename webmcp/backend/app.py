@@ -37,6 +37,7 @@ ALLOWED_ORIGINS = [
     "https://www.yonza.co.kr",
     "https://ssangssang.co.kr",
     "https://dev.yonza.co.kr",
+    "https://www.saengsaenghospital.com",   # 생생병원 (테넌트 id 5)
 ]
 
 # Client Hints 검증 (기본 비활성화 — 설계안 4-1-2)
