@@ -99,6 +99,11 @@ webmcp/backend/
 
 모든 요청은 `request_logs` 테이블에 기록됩니다.
 
+> 📌 **허용 도메인은 DB(`tenants`)가 단일 진실 공급원입니다.**
+> `app.py`에는 origin 화이트리스트가 없습니다. CORS는 `*`(쿠키 미사용이라 안전)로 열려 있고,
+> 실제 도메인 판별은 `fetch_tenant()`(DB 조회)가 담당합니다.
+> 따라서 **새 고객사 추가 시 코드 수정/재시작 없이 DB에 `tenants` 한 줄만 INSERT** 하면 됩니다.
+
 ### DB 스키마 (`init.sql`)
 
 **테이블 1: `tenants`** — 도메인별 Gemini 키/한도
@@ -166,6 +171,7 @@ sudo nginx -c /etc/nginx/webmcp_standalone.conf
 | `http://localhost:3000` | yonja | dev | 100 |
 | `https://yonza.co.kr` | yonja | prod | 20 |
 | `http://192.168.31.136:8081` | yonja | dev | 100 |
+| `http://114.205.189.190:8081` | hospital | prod | 20 |
 | `https://www.saengsaenghospital.com` | hospital | prod | 20 |
 
 ---
@@ -176,4 +182,5 @@ sudo nginx -c /etc/nginx/webmcp_standalone.conf
 |--------|-----|
 | yonja 데모 | `http://192.168.31.136:8081/` |
 | 생생병원 데모 | `http://192.168.31.136:8081/hospital.html` |
+| 생생병원 데모 (공인 IP) | `http://114.205.189.190:8081/hospital.html` |
 | 백엔드 헬스 | `http://192.168.31.136:8081/health` |

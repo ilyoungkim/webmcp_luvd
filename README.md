@@ -620,6 +620,19 @@ window.YONJA_SYSTEM_PROMPT = '당신은 연애의 자격의 AI 비서입니다. 
 - **키 저장**: DB `webmcp.tenants` 테이블 (도메인별)
 - **헬스체크**: `/health` 엔드포인트로 연결 상태 확인
 
+> 📌 **허용 도메인은 DB(`tenants`)가 단일 진실 공급원입니다.**
+> `app.py`에는 origin 화이트리스트가 없습니다. CORS는 `*`(쿠키 미사용이라 안전)로 열려 있고,
+> 실제 도메인 판별은 `fetch_tenant()`(DB 조회)가 담당합니다.
+> 따라서 **새 고객사 추가 시 코드 수정/재시작 없이 DB에 `tenants` 한 줄만 INSERT** 하면 됩니다.
+
+```sql
+-- 새 고객사 추가 = 이 한 줄만 실행 (또는 대시보드 '테넌트 설정' 탭에서 GUI 등록)
+INSERT INTO tenants (origin, site_ns, gemini_key, model_name, rate_limit, tier)
+VALUES ('http://<고객IP>:8081', 'hospital', '<KEY>', 'gemini-3.5-flash-lite', 20, 'prod');
+```
+
+> 💡 공인 IP는 ISP에 따라 유동적일 수 있으므로, 가능하면 고객사마다 **도메인/서브도메인**을 쓰도록 유도하는 것이 안정적입니다.
+
 ### 8. 배포 (원격 서버)
 
 ```bash
