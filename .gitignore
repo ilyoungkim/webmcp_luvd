@@ -22,3 +22,4 @@ webmcp_openrouter/backend/.env
 
 # 백엔드 전체 (로컬 전용 — 원격 GitHub에 올리지 않음)
 webmcp/backend/
+webmcp_openrouter/backend/
