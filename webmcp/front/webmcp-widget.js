@@ -70,6 +70,7 @@
     var titles = {
       yonja: '💘 연애의 자격 AI 비서',
       hospital: '🏥 생생병원 AI 비서',
+      genisev: '🔋 제니스코리아 AI 비서',
     };
     return {
       title: titles[ns] || '💘 AI 비서',
@@ -261,8 +262,8 @@
       if (typeof window.WebMCP === 'undefined' || typeof window.WebMCP.callGeminiViaProxy !== 'function') {
         throw new Error('webmcp.js(프록시)가 로드되지 않았습니다.');
       }
-      // 사이트별 시스템 프롬프트 (yonja 또는 hospital) 자동 선택
-      var systemPrompt = (window.YONJA_SYSTEM_PROMPT || window.HOSPITAL_SYSTEM_PROMPT || '') + '\n\n';
+      // 사이트별 시스템 프롬프트 (yonja / hospital / genisev) 자동 선택
+      var systemPrompt = (window.YONJA_SYSTEM_PROMPT || window.HOSPITAL_SYSTEM_PROMPT || window.GENISEV_SYSTEM_PROMPT || '') + '\n\n';
       var answer = await window.WebMCP.callGeminiViaProxy(systemPrompt + '사용자 질문: ' + q);
       addMsg(answer, 'bot');
     } catch (e) {
