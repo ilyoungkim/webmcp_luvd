@@ -165,14 +165,22 @@ sudo nginx -c /etc/nginx/webmcp_standalone.conf
 
 ## 3. 배포된 테넌트 (DB `tenants`)
 
-| origin | site_ns | tier | rate_limit |
-|--------|---------|------|------------|
-| `http://localhost:8000` | yonja | dev | 100 |
-| `http://localhost:3000` | yonja | dev | 100 |
-| `https://yonza.co.kr` | yonja | prod | 20 |
-| `http://192.168.31.136:8081` | yonja | dev | 100 |
-| `http://114.205.189.190:8081` | hospital | prod | 20 |
-| `https://www.saengsaenghospital.com` | hospital | prod | 20 |
+| id | origin | site_ns | tier | rate_limit |
+|----|--------|---------|------|------------|
+| 1 | `http://localhost:8000` | yonja | dev | 100 |
+| 2 | `http://localhost:3000` | yonja | dev | 100 |
+| 3 | `https://yonza.co.kr` | yonja | prod | 20 |
+| 4 | `http://192.168.31.136:8081` | yonja | dev | 100 |
+| 5 | `https://www.saengsaenghospital.com` | hospital | prod | 20 |
+| 6 | `http://114.205.189.190:8081` | hospital | prod | 20 |
+| 7 | `http://114.205.189.190:8082` | hospital | prod | 20 |
+| 8 | `http://webmcp.duckdns.org:8081` | hospital | prod | 20 |
+| 15 | `https://webmcp.duckdns.org` | hospital | prod | 20 |
+| 16 | `http://genisev.com` | genisev | prod | 20 |
+| 17 | `https://genisev.com` | genisev | prod | 20 |
+| 18 | `http://www.genisev.com` | genisev | prod | 20 |
+| 19 | `https://www.genisev.com` | genisev | prod | 20 |
+| 20 | `https://yj-dev.luvd.kr` | yonja | prod | 20 |
 
 ---
 
@@ -183,4 +191,98 @@ sudo nginx -c /etc/nginx/webmcp_standalone.conf
 | yonja 데모 | `http://192.168.31.136:8081/` |
 | 생생병원 데모 | `http://192.168.31.136:8081/hospital.html` |
 | 생생병원 데모 (공인 IP) | `http://114.205.189.190:8081/hospital.html` |
-| 백엔드 헬스 | `http://192.168.31.136:8081/health` |
+| 백엔드 헬스 (HTTP) | `http://114.205.189.190:8081/health` |
+| **HTTPS (권장)** | `https://webmcp.duckdns.org/health` |
+
+---
+
+## 5. 외부 사이트 배포 시 지켜야 할 사항 ⚠️
+
+외부 고객사 사이트(별도 서버/도메인)에 위젯을 붙일 때, 아래 사항을 반드시 준수해야
+합니다. (내부 데모와 달리 **브라우저 보안 정책(Mixed Content)과 요청 검증**이 적용됩니다.)
+
+### 5-1. HTTPS 사이트에서는 HTTP 백엔드 호출 불가 (Mixed Content)
+
+- 브라우저는 **HTTPS 페이지에서 `http://...` 리소스를 차단**합니다.
+- 고객사 페이지가 `https://` 라면, 백엔드 호출도 반드시 **`https://webmcp.duckdns.org`** 로 해야 합니다.
+
+| 페이지 프로토콜 | 사용 가능한 백엔드 |
+|-----------------|-------------------|
+| `http://` (내부 데모) | `http://114.205.189.190:8081` |
+| `https://` (실서비스) | `https://webmcp.duckdns.org` |
+
+### 5-2. 두 가지 연동 방식
+
+#### 방식 A — 상대경로 + 사이트 서버 리버스 프록시 (권장)
+
+위젯의 `proxyEndpoint`를 기본값 `/api/chat`(상대경로)로 두고, **고객사 서버(nginx/Next.js 등)**가
+`/api/` 를 백엔드로 프록시합니다. 이때 프록시 대상은 **반드시 HTTPS 주소**를 사용합니다.
+
+```nginx
+# 고객사 nginx 예시
+location /api/ {
+    proxy_pass https://webmcp.duckdns.org;
+    proxy_set_header Host webmcp.duckdns.org;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+#### 방식 B — 절대경로 직접 호출
+
+위젯의 `proxyEndpoint`를 HTTPS 절대주소로 지정합니다.
+
+```js
+// yonja-config.js 등
+window.WebMCPConfig = {
+  proxyEndpoint: 'https://webmcp.duckdns.org/api/chat',
+  // ...
+};
+```
+
+### 5-3. ⚠️ 서버 프록시 시 헤더 전달 필수 (안 지키면 401/403)
+
+백엔드는 요청 헤더로 테넌트를 판별하고, 비정상 요청을 차단합니다.
+**고객사 서버가 프록시할 때 원래 브라우저의 헤더를 그대로 전달**해야 합니다.
+
+| 헤더 | 없으면 발생 | 설명 |
+|------|------------|------|
+| `Origin` | **403 "등록되지 않은 도메인"** | DB(`tenants`)에서 테넌트 판별 |
+| `User-Agent` | **401 "비정상적인 요청"** | `Mozilla/5.0` + Chrome/Safari/Firefox/Edg 필요 |
+
+> ⚠️ **특히 `User-Agent` 주의**: Node.js(Next.js) `fetch`의 기본 UA는 브라우저가 아닙니다.
+> 서버사이드 프록시에서는 **반드시 브라우저의 UA를 그대로 넘겨야** 401을 피할 수 있습니다.
+
+**Next.js Route Handler 예시** (`app/api/chat/route.ts`):
+
+```ts
+export async function POST(req: Request) {
+  const body = await req.text();
+  const res = await fetch('https://webmcp.duckdns.org/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // ⚠️ 아래 헤더는 원본 브라우저 값을 그대로 전달 필수
+      'Origin': req.headers.get('origin') || 'https://yj-dev.luvd.kr',
+      'User-Agent': req.headers.get('user-agent') || 'Mozilla/5.0',
+      'Referer': req.headers.get('referer') || '',
+      'Sec-Ch-Ua': req.headers.get('sec-ch-ua') || '',
+    },
+    body,
+  });
+  const data = await res.text();
+  return new Response(data, {
+    status: res.status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+```
+
+### 5-4. 새 고객사 추가 체크리스트
+
+1. DB `tenants`에 고객사 **실제 접속 origin** 등록 (예: `https://고객사.com`)
+2. 고객사 페이지가 HTTPS라면 백엔드 호출도 **HTTPS(`webmcp.duckdns.org`)** 사용
+3. 프록시 시 `Origin` / `User-Agent` 헤더 전달
+4. 위젯 `proxyEndpoint` 확인 (상대경로 or HTTPS 절대경로)
+
+> 💡 `http://114.205.189.190:8081` 와 `https://webmcp.duckdns.org` 는 **같은 서버**(114.205.189.190)를
+> 가리킵니다. 포트만 다르고 동일한 FastAPI(8001)로 프록시되므로 기능은 동일합니다.

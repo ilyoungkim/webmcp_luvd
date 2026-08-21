@@ -1,0 +1,14 @@
+[Unit]
+Description=WebMCP OpenRouter Dashboard (Streamlit - local network only)
+After=network.target
+
+[Service]
+Type=simple
+User=tensun
+WorkingDirectory=/opt/webmcp_dashboard
+ExecStart=/opt/webmcp_dashboard/.venv/bin/streamlit run app.py --server.address 192.168.31.136 --server.port 8502 --server.headless true
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

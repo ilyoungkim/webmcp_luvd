@@ -138,19 +138,62 @@ with tab1:
         )
         st.plotly_chart(fig2, width='stretch')
 
-        # 도메인별 요청 수
+        # 도메인별 요청 수 (테이블 + 월간 비교)
         st.subheader("도메인(origin)별 요청 수")
-        origin_counts = (
-            df["origin"].fillna("(없음)").value_counts().reset_index()
+        df["origin"] = df["origin"].fillna("(없음)")
+
+        # 월간 비교를 위해 '년월' 컬럼 추가
+        df["year_month"] = df["ts"].dt.to_period("M").astype(str)
+
+        # 도메인별 전체 요청 수 (테이블)
+        origin_total = (
+            df.groupby("origin")
+            .size()
+            .reset_index(name="전체 요청 수")
+            .sort_values("전체 요청 수", ascending=False)
+            .reset_index(drop=True)
         )
-        origin_counts.columns = ["origin", "count"]
-        fig3 = px.bar(
-            origin_counts,
-            x="origin",
-            y="count",
-            title="도메인별 요청 수",
-        )
-        st.plotly_chart(fig3, width='stretch')
+
+        # 테이블로 표시 (숫자만)
+        st.markdown("**전체 요청 수 (누적)**")
+        st.dataframe(origin_total, use_container_width=True, hide_index=True)
+
+        # ── 월간 증감 비교 (최근 두 달) ──
+        months = sorted(df["year_month"].unique(), reverse=True)
+        st.markdown("**월간 비교 (최근 두 달)**")
+
+        if len(months) >= 2:
+            this_month = months[0]   # 최신 월
+            prev_month = months[1]   # 직전 월
+
+            pivot = (
+                df.groupby(["origin", "year_month"])
+                .size()
+                .unstack(fill_value=0)
+            )
+            # 해당 월이 없는 origin 은 0 으로 보정
+            for m in (this_month, prev_month):
+                if m not in pivot.columns:
+                    pivot[m] = 0
+
+            cmp = pd.DataFrame(index=pivot.index)
+            cmp[f"{prev_month} 요청"] = pivot[prev_month].astype(int)
+            cmp[f"{this_month} 요청"] = pivot[this_month].astype(int)
+            cmp["증감"] = cmp[f"{this_month} 요청"] - cmp[f"{prev_month} 요청"]
+            # 증감률 (%) — 직전 월 0 이면 표시를 "-" 로
+            cmp["증감률(%)"] = cmp.apply(
+                lambda r: (
+                    round((r["증감"] / r[f"{prev_month} 요청"]) * 100, 1)
+                    if r[f"{prev_month} 요청"] > 0 else None
+                ),
+                axis=1,
+            )
+            cmp = cmp.sort_values(f"{this_month} 요청", ascending=False)
+
+            st.caption(f"비교 기준: {prev_month} → {this_month}")
+            st.dataframe(cmp, use_container_width=True)
+        else:
+            st.info("아직 두 달 이상의 데이터가 없어 월간 비교가 불가능합니다.")
 
         # IP별 요청 수 (상위 20)
         st.subheader("IP별 요청 수 (상위 20)")

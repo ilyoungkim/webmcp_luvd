@@ -48,3 +48,47 @@ webmcp/front/
 <link rel="stylesheet" href="widget.css" />
 <script src="widget.js"></script>
 ```
+
+---
+
+## 외부 사이트 배포 시 주의사항 ⚠️
+
+외부 고객사 사이트(별도 서버/도메인)에 붙일 때 아래를 반드시 준수하세요.
+
+### 1. HTTPS 사이트에서는 HTTP 백엔드 호출 불가 (Mixed Content)
+
+브라우저는 HTTPS 페이지에서 `http://...` 리소스를 차단합니다.
+
+| 페이지 프로토콜 | 백엔드 호출 주소 |
+|-----------------|------------------|
+| `http://` (내부 데모) | `http://114.205.189.190:8081` |
+| `https://` (실서비스) | `https://webmcp.duckdns.org` |
+
+### 2. 두 가지 연동 방식
+
+**방식 A — 상대경로 + 사이트 서버 리버스 프록시 (권장)**
+`proxyEndpoint`를 기본 `/api/chat`으로 두고, 고객사 서버가 `/api/`를 백엔드로 프록시.
+프록시 대상은 **HTTPS 주소** 사용.
+
+**방식 B — HTTPS 절대경로 직접 호출**
+```js
+window.WebMCPConfig = {
+  proxyEndpoint: 'https://webmcp.duckdns.org/api/chat',
+};
+```
+
+### 3. ⚠️ 서버 프록시 시 헤더 전달 필수
+
+백엔드는 `Origin`/`User-Agent` 헤더로 테넌트 판별·비정상 요청 차단을 합니다.
+고객사 서버가 프록시할 때 **원본 브라우저 헤더를 그대로 전달**해야 합니다.
+
+| 헤더 | 없으면 | 설명 |
+|------|--------|------|
+| `Origin` | **403** | DB `tenants`에서 테넌트 판별 |
+| `User-Agent` | **401** | `Mozilla/5.0` + 브라우저명 필요 |
+
+> ⚠️ Node.js(Next.js) `fetch` 기본 UA는 브라우저가 아니므로, 서버 프록시 시
+> **브라우저 UA를 그대로 넘겨야** 401을 피할 수 있습니다.
+
+자세한 Next.js Route Handler 예시는 상위 [`webmcp/README.md`](../README.md)의
+"5. 외부 사이트 배포 시 지켜야 할 사항"을 참고하세요.
