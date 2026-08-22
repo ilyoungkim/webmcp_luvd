@@ -6,12 +6,16 @@ Gemini 키를 직접 들고 있지 않고 백엔드 프록시를 호출하는 `w
 ```
 webmcp/front/
 ├── webmcp.js           # 공용 라이브러리 — 프록시 /api/chat 호출 (키 미보관)
-├── widget.js           # AI 비서 위젯 로직 (마크다운, 퀵질문, 상태배지, 아코디언)
-├── widget.css          # 위젯 스타일 (.wmcp- 접두어 → 페이지 충돌 방지)
+├── widget.js           # AI 비서 위젯 로더 — webmcp-widget.js 동적 로드 (캐시 방지 ?v=)
+├── webmcp-widget.js    # 공용 위젯 로직 (마크다운, 퀵질문, 상태배지, 아코디언, 🧠 대화 기억)
+├── widget.css          # 위젯 스타일 (#webmcp-widget 스코프 → 페이지 충돌 방지)
 ├── yonja-config.js     # yonja.html 기준 WebMCPConfig + 시스템 프롬프트
 ├── hospital-config.js  # hospital.html 기준 WebMCPConfig + 시스템 프롬프트
 ├── index.html          # yonja 데모 페이지
-└── hospital.html       # 생생병원 데모 페이지
+├── hospital.html       # 생생병원 데모 페이지
+├── genisev.html        # 제니스코리아 데모 페이지
+├── memory-test.html    # 🧠 대화 기억(Memory) 기능 로컬 테스트 페이지
+└── HISTORY.md          # 버전별 변경 이력
 ```
 
 ## 파일 역할
@@ -19,12 +23,16 @@ webmcp/front/
 | 파일 | 역할 |
 |------|------|
 | `webmcp.js` | `window.WebMCP.callGeminiViaProxy(prompt)` — 프록시로 Gemini 호출. 키 미보관 |
-| `widget.js` | 위젯 DOM 자동 마운트. 마크다운 렌더링, 퀵 질문 pill, 연결 상태 배지, 동작 방식 아코디언 |
+| `widget.js` | 공통 라이브러리 로더. `webmcp-widget.js`를 동적으로 로드 (캐시 방지 `?v=1`) |
+| `webmcp-widget.js` | 위젯 DOM 자동 마운트. 마크다운 렌더링, 퀵 질문 pill, 연결 상태 배지, 동작 방식 아코디언, 🧠 대화 기억(Memory) |
 | `widget.css` | 위젯 스타일. 모든 선택자가 `#webmcp-widget`으로 스코프 |
 | `yonja-config.js` | `window.WebMCPConfig`(service/consultant/diagnosis 툴) + `window.YONJA_SYSTEM_PROMPT` |
-| `hospital-config.js` | `window.WebMCPConfig`(hospital/doctor/appointment 툴) + `window.HOSPITAL_SYSTEM_PROMPT` |
-| `index.html` | yonja 데모. WebMCP 정보/클라이언트·서버/WebMCP.config/DB 스키마/사용법 아코디언 |
+| `hospital-config.js` | `window.WebMCPConfig`(health/doctor/appointment 툴) + `window.HOSPITAL_SYSTEM_PROMPT` |
+| `index.html` | yonja 데모. WebMCP 정보/클라이언트·서버/WebMCP.config에/DB 스키마/사용법 아코디언 |
 | `hospital.html` | 생생병원 데모. 동일한 아코디언 구조 |
+| `genisev.html` | 제니스코리아 데모. WebMCP 툴 데모 |
+| `memory-test.html` | 🧠 메모리(대화 기억) 기능 로컬 테스트 페이지 |
+| `HISTORY.md` | 버전별 변경 이력 (마지막 버전 상단) |
 
 ## 위젯 동작 원리
 
@@ -37,17 +45,38 @@ webmcp/front/
   자동 선택해 프록시 요청에 포함합니다.
 - `webmcp.js`는 `window.WebMCPConfig.proxyEndpoint`(기본 `/api/chat`)로 호출합니다.
 
+## 🧠 대화 기억(Memory) 기능
+
+`webmcp-widget.js`(v1.1.0)에 **백엔드 API 없이 로컬스토리지만 사용**하는 대화 기억 기능이 포함됩니다.
+
+| 기능 | 동작 |
+|------|------|
+| 대화 저장 | 질문-답변 쌍을 `localStorage`(`wmcpMemory`)에 저장 (최대 50개) |
+| 유사 질문 유추 | 질문을 단어로 쪼개 이전 질문과 겹치는 비율 계산 (임계값 0.35) |
+| 기억 컨텍스트 | 유사 질문이 있으면 `[이전 대화 기억]` 컨텍스트를 프롬프트에 포함해 일관되게 답변 |
+| 영속성 | 새로고침/재접속 후에도 브라우저에 저장되어 유지 |
+
+- **동작 순서**: 사용자 질문 → 유사 이전 대화 검색 → 있으면 `[이전 대화 기억]` 컨텍스트 포함 → 프록시로 전송 → 답변을 메모리에 저장.
+- **서버 저장 없음**: 별도 백엔드 설정 불필요. 기기(브라우저)별 로컬 저장만 합니다.
+- **테스트**: `memory-test.html`에서 기능 검증 가능 (전체 PASS 확인됨).
+
+> 💡 로컬스토리지 기반이므로 브라우저/기기를 바꾸면 대화 기억은 공유되지 않습니다. 서버 저장이 필요하면 백엔드 API를 추가해야 합니다.
+
 ## 페이지에 붙이는 방법
 
 ```html
 <!-- ① 사이트별 config (webmcp.js 보다 먼저) -->
-<script src="yonja-config.js"></script>   <!-- 또는 hospital-config.js -->
+<script src="yonja-config.js"></script>   <!-- 또는 hospital-config.js / genisev-config.js -->
 <!-- ② 공용 라이브러리 -->
 <script src="webmcp.js"></script>
-<!-- ③ 위젯 -->
+<!-- ③ 위젯 로더 (webmcp-widget.js 는 widget.js가 자동 로드) -->
 <link rel="stylesheet" href="widget.css" />
 <script src="widget.js"></script>
 ```
+
+> 💡 **캐시 방지**: `widget.js`는 내부에서 `webmcp-widget.js?v=1`로 로드합니다.
+> `webmcp-widget.js`를 수정·배포했는데 새 기능이 안 보이면 `widget.js`의 `?v=` 값을 올리면 됩니다.
+> (브라우저가 구버전을 캐시하는 문제를 방지)
 
 ---
 

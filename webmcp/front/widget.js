@@ -40,10 +40,13 @@
   'use strict';
 
   // 공통 라이브러리 로드 (이미 로드되어 있으면 스킵)
+  // 💡 ?v= 버전 쿼리스트링: common 라이브러리(webmcp-widget.js)를 수정&배포했을 때
+  //    브라우저 캐시가 구버전을 반환하는 문제를 방지합니다. widget.js를 수정했으면
+  //    아래 버전 값을 올리세요. (yonja/hospital/genisev 모두 이 파일을 공유)
   function loadCommonWidget() {
     if (window.WebMCPWidgetLoaded) return;
     var s = document.createElement('script');
-    s.src = 'webmcp-widget.js';
+    s.src = 'webmcp-widget.js?v=1';
     s.async = false;
     document.body.appendChild(s);
     window.WebMCPWidgetLoaded = true;
