@@ -1,6 +1,13 @@
 // ============================================================================
 // webmcp-widget.js — 공통 AI 비서 웹 위젯 라이브러리
 // ============================================================================
+// 버전: v1.1.0 (2026-08-22)
+//   - v1.1.0: 🧠 대화 기억(Memory) 기능 추가
+//     · 로컬스토리지(localStorage)에 질문-답변 쌍 저장 → 새로고침 후에도 유지
+//     · 유사 질문 유추(단어 겹침 기반, 임계값 0.35) → 이전 답변을 컨텍스트로 사용
+//     · 백엔드 API 없이 프론트엔드만으로 동작
+//   - v1.0.0: 최초 공통 위젯 (마크다운 렌더링, pill, 상태 배지, 아코디언)
+//
 // 여러 도메인(yonja, hospital 등)이 공용으로 사용하는 위젯 로직.
 // 사이트별 설정은 window.WebMCPConfig 에서 읽어옵니다.
 //
@@ -9,6 +16,7 @@
 //   - 상태 배지 (연결/AI)
 //   - 동작 방식 아코디언
 //   - 백엔드 프록시(webmcp.js) 호출
+//   - 🧠 대화 기억(Memory) — 로컬스토리지 기반 유사 질문 유추
 //
 // 사용법:
 //   <script src="webmcp.js"></script>          // 프록시 호출
@@ -17,6 +25,7 @@
 (function () {
   'use strict';
 
+  var WIDGET_VERSION = '1.1.0'; // 🧠 메모리 기능 추가
   var ROOT_ID = 'webmcp-widget';
 
   function mount() {
@@ -251,6 +260,81 @@
     addMsg('안녕하세요! ' + cfg.title + '입니다.\n궁금한 점을 물어보세요.', 'bot');
   }
 
+  // ════════════════════════════════════════════════════════════════════════
+  // 🧠 대화 기억(Memory) 모듈 — 백엔드 API 없이 로컬스토리지만 사용
+  // ────────────────────────────────────────────────────────────────────────
+  // 1) 로컬스토리지(localStorage)에 대화를 저장 → 새로고침/재접속 후에도 유지
+  // 2) 유사 질문 유추 → 이전에 비슷한 질문을 한 적이 있으면 그 답변을
+  //    컨텍스트로 함께 보내 AI가 "기억"한 것처럼 답하게 함
+  // ※ 서버 API 없이 동작하므로 별도 백엔드 설정이 필요 없습니다.
+  // ════════════════════════════════════════════════════════════════════════
+  var MEMORY_KEY = 'wmcpMemory';          // 로컬스토리지 키
+  var MEMORY_MAX = 50;                    // 보관할 최대 대화 쌍(질문-답변) 수
+  var MEMORY_SIMILARITY = 0.35;           // 유사 질문 판단 임계값(0~1)
+
+  // ── 메모리 읽기/쓰기 (로컬스토리지) ─────────────────────────
+  function memoryLoad() {
+    try {
+      var raw = localStorage.getItem(MEMORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+  function memorySave(list) {
+    try { localStorage.setItem(MEMORY_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  // ── 대화 쌍(질문-답변) 추가 ─────────────────────────────────
+  function memoryAdd(q, a) {
+    var list = memoryLoad();
+    list.push({ q: q, a: a, ts: new Date().toISOString() });
+    if (list.length > MEMORY_MAX) list = list.slice(-MEMORY_MAX);
+    memorySave(list);
+  }
+
+  // ── 유사 질문 찾기 (키워드 겹침 기반) ────────────────────────
+  // 질문을 토큰(단어)으로 쪼개 이전 질문들과 겹치는 비율을 계산합니다.
+  // 임계값(MEMORY_SIMILARITY) 이상 겹치면 "유사 질문"으로 간주해
+  // 그때의 답변을 컨텍스트로 사용합니다.
+  function tokenize(text) {
+    return (text || '')
+      .toLowerCase()
+      .replace(/[^\w\s가-힣]/g, ' ')
+      .split(/\s+/)
+      .filter(function (t) { return t.length > 1; });
+  }
+  function similarity(a, b) {
+    var ta = tokenize(a), tb = tokenize(b);
+    if (!ta.length || !tb.length) return 0;
+    var set = {};
+    ta.forEach(function (t) { set[t] = true; });
+    var hit = 0;
+    tb.forEach(function (t) { if (set[t]) hit++; });
+    return hit / Math.max(ta.length, tb.length);
+  }
+  function findSimilar(q) {
+    var list = memoryLoad();
+    var best = null, bestScore = 0;
+    list.forEach(function (item) {
+      var s = similarity(q, item.q);
+      if (s > bestScore) { bestScore = s; best = item; }
+    });
+    return bestScore >= MEMORY_SIMILARITY ? best : null;
+  }
+
+  // ── 메모리 컨텍스트 조립 ────────────────────────────────────
+  // 유사 질문이 있으면 "이전 대화 기억"을 프롬프트 앞에 붙여
+  // AI가 이전 답변을 참고해 일관되게 답하도록 합니다.
+  function buildMemoryContext(q) {
+    var similar = findSimilar(q);
+    if (!similar) return '';
+    return (
+      '[이전 대화 기억]\n' +
+      '사용자가 이전에 비슷한 질문을 한 적이 있습니다. 아래 내용을 참고해 일관되게 답하세요.\n' +
+      '이전 질문: ' + similar.q + '\n' +
+      '이전 답변: ' + similar.a + '\n\n'
+    );
+  }
+
   async function handleAsk() {
     var input = $('#wmcpInput');
     var q = (input.value || '').trim();
@@ -264,8 +348,12 @@
       }
       // 사이트별 시스템 프롬프트 (yonja / hospital / genisev) 자동 선택
       var systemPrompt = (window.YONJA_SYSTEM_PROMPT || window.HOSPITAL_SYSTEM_PROMPT || window.GENISEV_SYSTEM_PROMPT || '') + '\n\n';
-      var answer = await window.WebMCP.callGeminiViaProxy(systemPrompt + '사용자 질문: ' + q);
+      // 🧠 이전 대화 기억 컨텍스트 (유사 질문이 있으면 자동 포함)
+      var memoryContext = buildMemoryContext(q);
+      var answer = await window.WebMCP.callGeminiViaProxy(memoryContext + systemPrompt + '사용자 질문: ' + q);
       addMsg(answer, 'bot');
+      // 🧠 이번 질문-답변을 메모리에 저장 (로컬 + 서버)
+      memoryAdd(q, answer);
     } catch (e) {
       addMsg('오류: ' + (e.message || e), 'bot', true);
     } finally {
